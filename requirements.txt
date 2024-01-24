@@ -1,0 +1,12 @@
+wheel
+click
+loguru
+
+libvirt-python==6.2.0
+python-novaclient
+python-glanceclient
+python-neutronclient
+python-cinderclient
+python-keystoneclient
+
+https://github.com/BytemanD/easy-to-use/releases/download/dev/easy2use-1.0.6.dev10-py3-none-any.whl
