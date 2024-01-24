@@ -22,7 +22,7 @@ openstack_opts = [
     cfg.ListOption('net_ids'),
     cfg.Option('attach_net'),
     cfg.BooleanOption('boot_from_volume', default=False),
-    cfg.IntOption('volume_size', default=10),
+    cfg.IntOption('volume_size', default=50),
     cfg.Option('boot_az'),
 ]
 
@@ -88,6 +88,7 @@ def load_configs(conf_file=None):
         break
     else:
         raise exceptions.ConfileNotExists()
+
 
 CONF.register_opts(default_opts)
 CONF.register_opts(openstack_opts, group='openstack')

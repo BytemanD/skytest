@@ -2,46 +2,52 @@
 debug = false
 
 [openstack]
-# 环境变量文件
+##### 环境变量文件
 env =
-# 镜像ID
+##### 镜像ID
 image_id = 
-# 规格ID
+##### 规格ID
 flavor = 
 
-# 网络ID列表
-net_ids = 
+##### 创建虚拟机使用的网络ID列表
+# net_ids = 
 
-# 挂载网卡使用的网络ID
-attach_net = 
+##### 挂载网卡使用的网络ID
+# attach_net =
 
-# 是否使用云盘
-boot_from_volume = false
+#### 是否使用云盘
+# boot_from_volume = false
 
-# 指定AZ创建云主机， 例如 nova:hostA
-# boot_az = 
-
+##### 指定AZ创建云主机， 例如 nova:hostA
+# boot_az = false
+##### 卷大小
+# volume_size = 50
 
 [scenario_test]
-# 总的任务数
-total = 1
-# 并行数
-worker = 1
+##### 总的任务数和并发任务数
+# total = 1
+# worker = 1
 
-# 任务运行的并发类型：
-# 协程: coroutine
-# 线程: process
-worker_type = coroutine
+##### 指定需要测试的场景,支持的场景：
+#   stop, start, reboot
+#   attach_interface, attach_interface_loop
+#   attach_volume, attach_volume_loop
+# scenarios =
 
-# 指定任务测试的 action,例如：
-# stop suspend pause migrate live_migrate
-# test_actions =
-# 清理错误的虚拟机
+##### 每次挂载网卡的个数和循环次数
+# attach_interface_nums_each_time = 1
+# attach_interface_loop_times = 2
+
+##### 每次挂载卷的个数循环次数
+# attach_volume_nums_each_time = 1
+# attach_volume_loop_times = 2
+
+##### 清理错误的虚拟机
 # cleanup_error_vms = true
 
 [boot]
-# 创建虚拟机后，是否通过检查conole log 等待虚拟机完全启动
-check_console_log = false
+##### 创建虚拟机后，是否通过检查conole log 等待虚拟机完全启动
+# check_console_log = False
 
 [reboot]
 times = 2
@@ -51,8 +57,3 @@ interval = 5
 times = 3
 interval = 10
 
-[interface]
-# 每一轮网卡挂载的个数
-attach_net_nums = 1
-# 挂载网卡的次数
-attach_net_times = 1

@@ -18,6 +18,7 @@ from skytest.common import log
 CONF = cfg.CONF
 LOG = log.getLogger()
 
+
 def create_random_str(length):
     return ''.join(
         random.sample(
@@ -61,8 +62,8 @@ class OpenstackManager:
             vms.append(vm)
         return vms
 
-    def _wait_for_vm(self, vm, status={'active'}, task_states=None, timeout=None,
-                     interval=5):
+    def _wait_for_vm(self, vm, status={'active'}, task_states=None,
+                     timeout=None, interval=5):
         if isinstance(status, str):
             states = {status}
         else:
@@ -126,7 +127,7 @@ class OpenstackManager:
 
         with futures.ThreadPoolExecutor(max_workers=workers) as executor:
             tasks = [executor.submit(self.delete_vm, vm, force=force)
-                    for vm in servers]
+                     for vm in servers]
 
             with pbr.progressbar(len(servers), description='delete vm') as bar:
                 for _ in futures.as_completed(tasks):
@@ -141,14 +142,13 @@ class OpenstackManager:
                  'snapshot: {}, workers: {} ', num, name, image, snapshot,
                  workers)
         volumes = []
-        
-        
+
         with futures.ThreadPoolExecutor(max_workers=workers) as executor:
             tasks = [executor.submit(self.create_volume,
                                      size_gb=size, name=f'{name}-{index}',
                                      image=image, snapshot=snapshot,
                                      volume_type=volume_type, wait=True)
-                for index in range(1, num + 1)]
+                     for index in range(1, num + 1)]
             LOG.info('Creating, please be patient ...')
             for task in futures.as_completed(tasks):
                 vol = task.result()
@@ -160,8 +160,8 @@ class OpenstackManager:
         return volumes
 
     def create_volume(self, size_gb=None, name=None, image=None,
-                       snapshot=None, wait=False, interval=1,
-                       volume_type=None):
+                      snapshot=None, wait=False, interval=1,
+                      volume_type=None):
         timeout = 600
 
         def compute_volume_finished(result):
@@ -244,8 +244,8 @@ class OpenstackManager:
             'volume-{}'.format(vol.id) for vol in self.client.list_volumes()]
         lines = self.rbd_ls(pool)
         delete_images = [
-            line for line in lines \
-                if line and line.startswith('volume') and line not in volumes]
+            line for line in lines
+            if line and line.startswith('volume') and line not in volumes]
         LOG.info('Found {} image(s)', len(delete_images))
         if not delete_images:
             return
@@ -289,7 +289,7 @@ class OpenstackManager:
     def get_flavor(self, id_or_name):
         try:
             return self.client.nova.flavors.get(id_or_name)
-        except Exception as e:
+        except Exception:
             return self.client.nova.flavors.find(name=id_or_name)
 
     def get_image(self, id_or_name):
@@ -306,7 +306,7 @@ class OpenstackManager:
             name = utils.generate_name(
                 CONF.openstack.boot_from_volume and 'vol-vm' or 'img-vm')
 
-        image_id =CONF.openstack.image_id
+        image_id = CONF.openstack.image_id
         nics = self._get_nics()
         if not name:
             name = self.generate_name(
@@ -356,7 +356,7 @@ class OpenstackManager:
     def _wait_for_console_log(self, vm, interval=10):
         def check_vm_console_log():
             output = vm.get_console_output(length=10)
-            LOG.debug('console log: {}', vm.id, output)
+            LOG.debug('console log: {}', output, vm=vm.id)
             for key in CONF.boot.console_log_error_keys:
                 if key not in output:
                     continue

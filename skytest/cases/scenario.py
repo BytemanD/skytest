@@ -1,8 +1,6 @@
-from concurrent import futures
 import random
 
 from easy2use.globals import cfg
-from easy2use.common import colorstr
 
 from skytest.common import exceptions
 from skytest.common import utils
@@ -27,7 +25,7 @@ class ECScenarioTest(object):
 
     def run(self):
         self.tear_up()
-        try: 
+        try:
             self.start()
             self.varify()
         finally:
@@ -60,7 +58,7 @@ class VMStopScenarioTest(ECScenarioTest):
         LOG.info('vm state is {}', vm_state)
         if vm_state.upper() != 'STOPPED':
             raise exceptions.VMTestFailed(vm=self.vm.id, action='stop',
-                                            reason=f'vm state is {vm_state}')
+                                          reason=f'vm state is {vm_state}')
         LOG.success('test stop success', vm=self.vm.id)
 
 
@@ -127,7 +125,7 @@ class VMAttachInterfaceTest(ECScenarioTest):
         for j in range(CONF.scenario_test.attach_interface_nums_each_time):
             LOG.info('attaching interface {}/{}', j+1,
                      CONF.scenario_test.attach_interface_nums_each_time,
-                     vm=self.vm.id) 
+                     vm=self.vm.id)
             attached = self.vm.interface_attach(
                 None, CONF.openstack.attach_net, None)
             self.attached_ports.append(attached.port_id)
@@ -154,7 +152,7 @@ class VMAttachInterfaceLoopTest(ECScenarioTest):
         for index in range(CONF.scenario_test.attach_interface_loop_times):
             attached_ports = []
             for j in range(CONF.scenario_test.attach_interface_nums_each_time):
-                LOG.info('attaching interface {}-{}', index + 1, j + 1) 
+                LOG.info('attaching interface {}-{}', index + 1, j + 1)
                 attached = self.vm.interface_attach(None,
                                                     CONF.openstack.attach_net,
                                                     None)
@@ -170,7 +168,7 @@ class VMAttachInterfaceLoopTest(ECScenarioTest):
 
             for port_id in attached_ports:
                 LOG.info('detaching interface {} {}',
-                         index + 1, port_id, vm=self.vm.id) 
+                         index + 1, port_id, vm=self.vm.id)
                 self.vm.interface_detach(port_id)
 
     def varify(self):
@@ -248,10 +246,12 @@ VM_TEST_SCENARIOS = {
     'attach_volume_loop': VMAttachVolumeLoopTest,
 }
 
+
 def get_manager():
     if CONF.manager == 'openstack':
         return manager.OpenstackManager()
     raise exceptions.InvalidManager(CONF.manager)
+
 
 class VMScenarioTest(object):
 
@@ -309,7 +309,7 @@ class VMScenarioTest(object):
                     reason=f'compute service on {host} is not available')
             elif az:
                 raise exceptions.NotAvailableServices(
-                    reason=f'there is no available compute service for az "{az}"')
+                    reason=f'no available compute service for az "{az}"')
         elif len(services) == 1:
             if 'migrate' in CONF.scenario_test.scenarios:
                 raise exceptions.NotAvailableServices(
@@ -344,9 +344,10 @@ class VMScenarioTest(object):
             server = self.manager.create_server(wait=True,
                                                 timeout=CONF.boot.timeout)
 
-            # if CONF.boot.check_console_log:
-            #     self._wait_for_console_log(vm, interval=10)
-            LOG.success('created, host: {}', self.manager.get_server_host(server),
+            if CONF.boot.check_console_log:
+                self.manager._wait_for_console_log(server)
+            LOG.success('created, host is: {}',
+                        self.manager.get_server_host(server),
                         vm=server.id)
 
             for scenario in self.get_scenarios():

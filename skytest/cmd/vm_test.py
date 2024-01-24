@@ -1,8 +1,5 @@
 import click
-import logging
-import os
 import sys
-
 
 from skytest.common import log
 from skytest.common import conf
