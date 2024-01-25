@@ -2,7 +2,8 @@ from easy2use.common import exceptions as base_exc
 
 
 class ConfileNotExists(base_exc.BaseException):
-    _msg = 'conf file not exists'
+    _msg = 'conf file not exists {files}'
+
 
 class InvalidManager(base_exc.BaseException):
     _msg = 'Invalid manager {}'
@@ -122,3 +123,6 @@ class InvalidImage(base_exc.BaseException):
 
 class VMTestFailed(base_exc.BaseException):
     _msg = 'vm {vm} {action} falied, {reason}.'
+
+class GuestDomainIpaddressNotExists(base_exc.BaseException):
+     _msg = 'ipaddress {} not exsits on guest domain.'

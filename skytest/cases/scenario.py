@@ -5,6 +5,7 @@ from easy2use.globals import cfg
 from skytest.common import exceptions
 from skytest.common import utils
 from skytest.common import log
+from skytest.common import libvirt_guest
 from skytest.managers.openstack import manager
 
 CONF = cfg.CONF
@@ -152,7 +153,8 @@ class VMAttachInterfaceLoopTest(ECScenarioTest):
         for index in range(CONF.scenario_test.attach_interface_loop_times):
             attached_ports = []
             for j in range(CONF.scenario_test.attach_interface_nums_each_time):
-                LOG.info('attaching interface {}-{}', index + 1, j + 1)
+                LOG.info('attaching interface {}-{}', index + 1, j + 1,
+                         vm=self.vm.id)
                 attached = self.vm.interface_attach(None,
                                                     CONF.openstack.attach_net,
                                                     None)
@@ -335,6 +337,21 @@ class VMScenarioTest(object):
         self._check_image()
         self._check_services()
 
+    def get_server_guest(self):
+        return libvirt_guest.LibvirtGuest(
+            self.manager.get_server_id(self.server),
+            host=self.manager.get_server_host(self.server))
+
+    def domain_must_has_all_ipaddress(self):
+        guest = self.get_server_guest()
+        result = guest.ip_a()
+        vm_ipaddresses = self.manager.get_vm_ips(self.server)
+        for ipaddress in vm_ipaddresses:
+            if f'inet {ipaddress}/' not in result:
+                raise exceptions.GuestDomainIpaddressNotExists(ipaddress)
+        LOG.success('domain has all ipaddresses {}', vm_ipaddresses,
+                    vm=self.vm.id)
+
     def run(self, pre_check=True):
         if pre_check:
             self.before_run()
@@ -343,12 +360,21 @@ class VMScenarioTest(object):
         try:
             server = self.manager.create_server(wait=True,
                                                 timeout=CONF.boot.timeout)
+            self.server = server
+            host = self.manager.get_server_host(server)
+
+            guest = libvirt_guest.LibvirtGuest(
+                self.manager.get_server_id(server), host=host)
+
+            if not guest.is_exists():
+                raise Exception('domain is not exists')
+            LOG.info('domain info {}', guest.info(), vm=server.id)
 
             if CONF.boot.check_console_log:
                 self.manager._wait_for_console_log(server)
-            LOG.success('created, host is: {}',
-                        self.manager.get_server_host(server),
-                        vm=server.id)
+            LOG.success('created, host is: {}', host, vm=server.id)
+
+            self.domain_must_has_all_ipaddress()
 
             for scenario in self.get_scenarios():
                 test_cls = VM_TEST_SCENARIOS.get(scenario)
@@ -370,8 +396,8 @@ class VMScenarioTest(object):
 
 
 def do_test_vm():
+    test_task = VMScenarioTest()
     try:
-        test_task = VMScenarioTest()
         test_task.run(pre_check=False)
         return True
     except Exception as e:
@@ -406,3 +432,26 @@ def test_with_process():
 
     log_func('OK/NG/Total: {}/{}/{}', CONF.scenario_test.total - ng,
              ng, CONF.scenario_test.total)
+
+def test_without_process():
+    run_before = False
+    ng = 0
+    for _ in range(CONF.scenario_test.total):
+        test_task = VMScenarioTest()
+        if not run_before:
+            test_task.before_run()
+        try:
+            test_task.run(pre_check=False)
+            ng += 1
+        except Exception as e:
+            LOG.exception('test failed, {}', e)
+
+    if ng == 0:
+        log_func = LOG.success
+    elif ng == CONF.scenario_test.total:
+        log_func = LOG.success
+    else:
+        log_func = LOG.success
+
+    log_func('OK/NG/Total: {}/{}/{}', CONF.scenario_test.total - ng, ng,
+             CONF.scenario_test.total)

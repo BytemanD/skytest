@@ -83,3 +83,12 @@ def run_processes(func, maps=None, max_workers=1, nums=None):
 def generate_name(resource):
     return 'skytest-{}-{}'.format(resource,
                                   date.now_str(date_fmt='%m%d-%H:%M:%S'))
+
+
+def is_uuid(text):
+    import uuid
+    try:
+        uuid.UUID(text)
+    except (TypeError, ValueError, AttributeError):
+        return False
+    return True

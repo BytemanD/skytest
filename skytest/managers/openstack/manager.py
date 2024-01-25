@@ -353,6 +353,9 @@ class OpenstackManager:
     def get_server_host(self, server):
         return getattr(server, 'OS-EXT-SRV-ATTR:host')
 
+    def get_server_id(self, server):
+        return getattr(server, 'id')
+
     def _wait_for_console_log(self, vm, interval=10):
         def check_vm_console_log():
             output = vm.get_console_output(length=10)

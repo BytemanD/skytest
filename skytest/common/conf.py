@@ -76,6 +76,8 @@ hard_reboot_opts = [
 
 
 def load_configs(conf_file=None):
+    if not conf_file:
+        conf_file = os.getenv('SKYTEST_CONF_FILE')
     conf_files = [conf_file] if conf_file else [
         '/etc/skytest/ec-nova.conf',
         pathlib.Path('etc', 'skytest.conf').absolute()
@@ -87,7 +89,8 @@ def load_configs(conf_file=None):
         CONF.load(file)
         break
     else:
-        raise exceptions.ConfileNotExists()
+        raise exceptions.ConfileNotExists(
+            files=[str(f) for f in conf_files])
 
 
 CONF.register_opts(default_opts)

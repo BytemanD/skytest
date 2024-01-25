@@ -32,7 +32,10 @@ def vm_scenario_test(verbose, log_file, conf_file):
         LOG.error('load config failed, {}', e)
         sys.exit(1)
 
-    scenario.test_with_process()
+    if CONF.scenario_test.worker == 1:
+        scenario.test_without_process()
+    else:
+        scenario.test_with_process()
 
 
 if __name__ == '__main__':
