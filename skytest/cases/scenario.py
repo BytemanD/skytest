@@ -308,7 +308,7 @@ class VMScenarioTest(object):
         if not services:
             if host:
                 raise exceptions.NotAvailableServices(
-                    reason=f'compute service on {host} is not available')
+                    reason=f'compute service of {host} is not available')
             elif az:
                 raise exceptions.NotAvailableServices(
                     reason=f'no available compute service for az "{az}"')
@@ -338,19 +338,22 @@ class VMScenarioTest(object):
         self._check_services()
 
     def get_server_guest(self):
+        host_ip = self.manager.get_host_ip(
+            self.manager.get_server_host(self.server))
+
         return libvirt_guest.LibvirtGuest(
-            self.manager.get_server_id(self.server),
-            host=self.manager.get_server_host(self.server))
+            self.manager.get_server_id(self.server), host=host_ip)
 
     def domain_must_has_all_ipaddress(self):
         guest = self.get_server_guest()
         result = guest.ip_a()
         vm_ipaddresses = self.manager.get_vm_ips(self.server)
+
         for ipaddress in vm_ipaddresses:
             if f'inet {ipaddress}/' not in result:
                 raise exceptions.GuestDomainIpaddressNotExists(ipaddress)
-        LOG.success('domain has all ipaddresses {}', vm_ipaddresses,
-                    vm=self.vm.id)
+        LOG.success('domain has all ip address {}', vm_ipaddresses,
+                    vm=self.server.id)
 
     def run(self, pre_check=True):
         if pre_check:
@@ -432,6 +435,7 @@ def test_with_process():
 
     log_func('OK/NG/Total: {}/{}/{}', CONF.scenario_test.total - ng,
              ng, CONF.scenario_test.total)
+
 
 def test_without_process():
     run_before = False

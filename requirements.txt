@@ -2,7 +2,7 @@ wheel
 click
 loguru
 
-libvirt-python==6.2.0
+# libvirt-python==6.2.0
 python-novaclient
 python-glanceclient
 python-neutronclient

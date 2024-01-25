@@ -124,5 +124,10 @@ class InvalidImage(base_exc.BaseException):
 class VMTestFailed(base_exc.BaseException):
     _msg = 'vm {vm} {action} falied, {reason}.'
 
+
 class GuestDomainIpaddressNotExists(base_exc.BaseException):
-     _msg = 'ipaddress {} not exsits on guest domain.'
+    _msg = 'ipaddress {} not exsits on guest domain.'
+
+
+class HypervisorNotFound(base_exc.BaseException):
+    _msg = 'hypervisor {} not found.'

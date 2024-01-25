@@ -434,3 +434,10 @@ class OpenstackManager:
 
         retry.retry_untile_true(check_volume, interval=5, timeout=600)
         LOG.info('detached volume {}', volume_id, vm=vm.id)
+
+    def get_host_ip(self, hostname):
+        hypervisors = self.client.nova.hypervisors.search(hostname)
+        if not hypervisors:
+            raise exceptions.HypervisorNotFound(hostname)
+        hypervisors[0].get()
+        return hypervisors[0].host_ip
