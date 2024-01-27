@@ -5,266 +5,28 @@ from easy2use.globals import cfg
 from skytest.common import exceptions
 from skytest.common import utils
 from skytest.common import log
-from skytest.common import libvirt_guest
-from skytest.managers.openstack import manager
+# from skytest.common import libvirt_guest
+from skytest.common import model
+from skytest.managers import base
+
+from . import vm_actions
 
 CONF = cfg.CONF
 LOG = log.getLogger()
 
-
-class ECScenarioTest(object):
-
-    def __init__(self, vm, api: manager.OpenstackManager) -> None:
-        self.api = api or get_manager()
-        self.vm = vm
-
-    def tear_up(self):
-        pass
-
-    def tear_down(self):
-        pass
-
-    def run(self):
-        self.tear_up()
-        try:
-            self.start()
-            self.varify()
-        finally:
-            LOG.info('tear down')
-            self.tear_down()
-
-    def start(self):
-        pass
-
-    def varify(self):
-        pass
-
-    def assert_vm_state_is_active(self):
-        vm_state = self.api.get_vm_state(self.vm, refresh=True)
-        if vm_state.upper() != 'ACTIVE':
-            raise exceptions.VMTestFailed(vm=self.vm.id,
-                                          action='attach_interface',
-                                          reason=f'vm state is {vm_state}')
+VM_TEST_SCENARIOS = vm_actions.VM_TEST_SCENARIOS
 
 
-class VMStopScenarioTest(ECScenarioTest):
+class ECSScenarioTest(object):
 
-    def start(self):
-        self.vm.stop()
-        LOG.info('stopping')
-        self.api.wait_for_vm_task_finished(self.vm)
-
-    def varify(self):
-        vm_state = self.api.get_vm_state(self.vm, refresh=True)
-        LOG.info('vm state is {}', vm_state)
-        if vm_state.upper() != 'STOPPED':
-            raise exceptions.VMTestFailed(vm=self.vm.id, action='stop',
-                                          reason=f'vm state is {vm_state}')
-        LOG.success('test stop success', vm=self.vm.id)
-
-
-class VMRebootScenarioTest(ECScenarioTest):
-
-    def start(self):
-        self.vm.reboot()
-        LOG.info('rebooting', vm=self.vm.id)
-        self.api.wait_for_vm_task_finished(self.vm)
-
-    def varify(self):
-        self.assert_vm_state_is_active()
-        LOG.info('rebooted', vm=self.vm.id)
-
-        try:
-            if CONF.boot.check_console_log:
-                self.api._wait_for_console_log(self.vm, interval=10)
-        except (exceptions.WaitVMStatusTimeout, exceptions.VMIsError) as e:
-            raise exceptions.VMTestFailed(vm=self.vm.id, action='reboot',
-                                          reason=e)
-        LOG.success('tes rebooted success', vm=self.vm.id)
-        return self.vm
-
-
-class VMHardRebootScenarioTest(ECScenarioTest):
-
-    def start(self):
-        self.vm.reboot(reboot_type='HARD')
-        LOG.info('hard rebooting', vm=self.vm.id)
-        self.api.wait_for_vm_task_finished(self.vm)
-
-    def varify(self):
-        self.assert_vm_state_is_active()
-        LOG.info('started', vm=self.vm.id)
-
-        try:
-            self.api._wait_for_vm(self.vm, timeout=60 * 10, interval=5)
-            if CONF.boot.check_console_log:
-                self.api._wait_for_console_log(self.vm, interval=10)
-        except (exceptions.WaitVMStatusTimeout, exceptions.VMIsError) as e:
-            raise exceptions.RebootFailed(vm=self.vm.id, reason=e)
-        LOG.info('test rebooted success', vm=self.vm.id)
-        return self.vm
-
-
-class VMStartScenarioTest(ECScenarioTest):
-
-    def start(self):
-        self.vm.start()
-        LOG.info('starting')
-        self.api.wait_for_vm_task_finished(self.vm)
-
-    def varify(self):
-        self.assert_vm_state_is_active()
-
-
-class VMAttachInterfaceTest(ECScenarioTest):
-
-    def __init__(self, vm, api: manager.OpenstackManager) -> None:
-        super().__init__(vm, api)
-        self.attached_ports = []
-
-    def start(self):
-        for j in range(CONF.scenario_test.attach_interface_nums_each_time):
-            LOG.info('attaching interface {}/{}', j+1,
-                     CONF.scenario_test.attach_interface_nums_each_time,
-                     vm=self.vm.id)
-            attached = self.vm.interface_attach(
-                None, CONF.openstack.attach_net, None)
-            self.attached_ports.append(attached.port_id)
-
-    def varify(self):
-        vifs = self.api.get_vm_interfaces(self.vm)
-        LOG.debug('vm ip interfaces: {}', vifs, vm=self.vm.id)
-        for port_id in self.attached_ports:
-            if port_id not in vifs:
-                raise exceptions.VMTestFailed(
-                    vm=self.vm.id, action='attach_interface',
-                    reason=f'port {port_id} not in vm interfaces {vifs}')
-
-        self.assert_vm_state_is_active()
-        LOG.success('test attach volume success', vm=self.vm.id)
-
-
-class VMAttachInterfaceLoopTest(ECScenarioTest):
-
-    def __init__(self, vm, api: manager.OpenstackManager) -> None:
-        super().__init__(vm, api)
-
-    def start(self):
-        for index in range(CONF.scenario_test.attach_interface_loop_times):
-            attached_ports = []
-            for j in range(CONF.scenario_test.attach_interface_nums_each_time):
-                LOG.info('attaching interface {}-{}', index + 1, j + 1,
-                         vm=self.vm.id)
-                attached = self.vm.interface_attach(None,
-                                                    CONF.openstack.attach_net,
-                                                    None)
-                attached_ports.append(attached.port_id)
-
-            vifs = self.api.get_vm_interfaces(self.vm)
-            LOG.debug('vm ip interfaces: {}', vifs, vm=self.vm.id)
-            for port_id in attached_ports:
-                if port_id not in vifs:
-                    raise exceptions.VMTestFailed(
-                        vm=self.vm.id, action='attach_interface',
-                        reason=f'port {port_id} not in vm interfaces {vifs}')
-
-            for port_id in attached_ports:
-                LOG.info('detaching interface {} {}',
-                         index + 1, port_id, vm=self.vm.id)
-                self.vm.interface_detach(port_id)
-
-    def varify(self):
-        self.assert_vm_state_is_active()
-        LOG.success('test attach volume loop success', vm=self.vm.id)
-
-
-class VMAttachVolumeTest(ECScenarioTest):
-
-    def __init__(self, vm, api: manager.OpenstackManager) -> None:
-        super().__init__(vm, api)
-        self.attached_volumes = []
-
-    def start(self):
-        LOG.info('creating volumes', vm=self.vm.id)
-        volume_ids = self.api.create_volumes(
-            1, num=CONF.scenario_test.attach_volume_nums_each_time)
-        LOG.info('test attach volume', vm=self.vm.id)
-        for volume_id in volume_ids:
-            self.api.attach_volume(self.vm, volume_id)
-            LOG.info('attaching volume {}', volume_id, vm=self.vm.id)
-            self.api.wait_for_vm_task_finished(self.vm)
-            self.attached_volumes.append(volume_id)
-
-    def varify(self):
-        # TODO
-        # varify vm volume attachments
-        self.assert_vm_state_is_active()
-        LOG.success('test attach volume success', vm=self.vm.id)
-
-
-class VMAttachVolumeLoopTest(ECScenarioTest):
-
-    def __init__(self, vm, api: manager.OpenstackManager) -> None:
-        super().__init__(vm, api)
-        self.created_volumes = []
-
-    def tear_up(self):
-        super().tear_up()
-        LOG.info('creating volumes', vm=self.vm.id)
-        self.created_volumes = self.api.create_volumes(
-            10, num=CONF.scenario_test.attach_volume_nums_each_time)
-
-    def start(self):
-        for i in range(CONF.scenario_test.attach_volume_loop_times):
-            for (j, volume) in enumerate(self.created_volumes):
-                LOG.info('test attach volume {}-{}', i+1, j+1, vm=self.vm.id)
-                self.api.attach_volume(self.vm, volume.id, wait=True)
-                self.api.wait_for_vm_task_finished(self.vm)
-
-            for volume in self.created_volumes:
-                self.api.detach_volume(self.vm, volume.id, wait=True)
-                self.api.wait_for_vm_task_finished(self.vm)
-
-    def varify(self):
-        # TODO
-        # varify vm volume attachments
-        self.assert_vm_state_is_active()
-        LOG.success('test attach volume loop success', vm=self.vm.id)
-
-    def tear_down(self):
-        LOG.info('clean up {} volumes', len(self.created_volumes),
-                 vm=self.vm.id)
-        self.api.delete_volumes(self.created_volumes)
-        super().tear_down()
-
-
-VM_TEST_SCENARIOS = {
-    'stop': VMStopScenarioTest,
-    'start': VMStartScenarioTest,
-    'reboot': VMRebootScenarioTest,
-    'attach_interface': VMAttachInterfaceTest,
-    'attach_interface_loop': VMAttachInterfaceLoopTest,
-    'attach_volume': VMAttachVolumeTest,
-    'attach_volume_loop': VMAttachVolumeLoopTest,
-}
-
-
-def get_manager():
-    if CONF.manager == 'openstack':
-        return manager.OpenstackManager()
-    raise exceptions.InvalidManager(CONF.manager)
-
-
-class VMScenarioTest(object):
-
-    def __init__(self, manager=None) -> None:
-        self._manager = manager
-        self.server = None
+    def __init__(self, mgr=None) -> None:
+        self._manager = mgr
+        self.ecs: model.ECS = None
 
     @property
-    def manager(self):
+    def manager(self) -> base.BaseManager:
         if not self._manager:
-            self._manager = get_manager()
+            self._manager = base.get_manager()
         return self._manager
 
     @staticmethod
@@ -320,142 +82,128 @@ class VMScenarioTest(object):
             LOG.info('available services num is {}', len(services))
 
     def before_run(self):
-        LOG.info('== Check before test ==')
+        LOG.info('==== Check before test ====')
 
         test_scenarios = self.get_scenarios()
         if not test_scenarios:
-            LOG.warning("test scenarions is empty")
+            raise exceptions.InvalidConfig(reason="test action is empty")
+
+        if 'create' not in test_scenarios and not CONF.scenario_test.ecs_id:
+            raise exceptions.InvalidConfig(
+                reason="test action 'create' is required if 'ecs_id' is empty")
+
         for scenario in test_scenarios:
             if scenario not in VM_TEST_SCENARIOS:
                 raise exceptions.InvalidScenario(scenario)
 
         if not self._manager:
             utils.load_env(CONF.openstack.env)
-            self._manager = get_manager()
+            self._manager = base.get_manager()
 
         self._check_flavor()
         self._check_image()
         self._check_services()
 
-    def get_server_guest(self):
-        host_ip = self.manager.get_host_ip(
-            self.manager.get_server_host(self.server))
-
-        return libvirt_guest.LibvirtGuest(
-            self.manager.get_server_id(self.server), host=host_ip)
-
     def domain_must_has_all_ipaddress(self):
-        guest = self.get_server_guest()
+        guest = self.manager.get_libvirt_guest(self.ecs)
         result = guest.ip_a()
-        vm_ipaddresses = self.manager.get_vm_ips(self.server)
+        vm_ipaddresses = self.manager.get_ecs_ip_address(self.ecs)
 
         for ipaddress in vm_ipaddresses:
             if f'inet {ipaddress}/' not in result:
                 raise exceptions.GuestDomainIpaddressNotExists(ipaddress)
         LOG.success('domain has all ip address {}', vm_ipaddresses,
-                    vm=self.server.id)
+                    vm=self.ecs.id)
 
     def run(self, pre_check=True):
         if pre_check:
             self.before_run()
-
-        error, server = False, None
+        actions = self.get_scenarios()
         try:
-            server = self.manager.create_server(wait=True,
-                                                timeout=CONF.boot.timeout)
-            self.server = server
-            host = self.manager.get_server_host(server)
+            if CONF.scenario_test.ecs_id and 'create' not in actions:
+                LOG.warning('test with ecs {}', CONF.scenario_test.ecs_id)
+                self.ecs = self.manager.get_ecs(CONF.scenario_test.ecs_id)
+            else:
+                self.ecs = None
 
-            guest = libvirt_guest.LibvirtGuest(
-                self.manager.get_server_id(server), host=host)
+            # guest = self.manager.get_libvirt_guest(self.ecs)
+            # if not guest.is_exists():
+            #     raise Exception('domain is not exists')
+            # LOG.info('domain info {}', guest.info(), vm=self.ecs.id)
 
-            if not guest.is_exists():
-                raise Exception('domain is not exists')
-            LOG.info('domain info {}', guest.info(), vm=server.id)
+            # self.domain_must_has_all_ipaddress()
+            LOG.info('==== Start ECS action test ====')
+            jobs = []
+            for action in actions:
+                test_cls = vm_actions.VM_TEST_SCENARIOS.get(action)
+                job = test_cls(self.ecs, self.manager)
+                try:
+                    job.run()
+                except exceptions.SkipActionException as e:
+                    LOG.warning('{}', e, ecs=(self.ecs and self.ecs.id))
+                else:
+                    self.ecs = job.ecs
+                    jobs.append(job)
 
-            if CONF.boot.check_console_log:
-                self.manager._wait_for_console_log(server)
-            LOG.success('created, host is: {}', host, vm=server.id)
-
-            self.domain_must_has_all_ipaddress()
-
-            for scenario in self.get_scenarios():
-                test_cls = VM_TEST_SCENARIOS.get(scenario)
-                test_runner = test_cls(server, self.manager)
-                test_runner.run()
-
+            LOG.info('==== Tear Down ECS action test ====')
+            for job in reversed(jobs):
+                job.tear_down()
         except Exception as e:
-            LOG.exception('test failed')
-            error = True
+            if not CONF.scenario_test.ecs_id and self.ecs and \
+               CONF.scenario_test.cleanup_error_vms:
+                LOG.info('cleanup', ecs=self.ecs.id)
+                self.manager.delete_ecs(self.ecs)
             raise e
         else:
-            LOG.success('test success', vm=server.id)
+            LOG.success('==== test success ====', ecs=self.ecs.id)
         finally:
-            if server:
-                self.manager.report_server_actions(server)
-                if not error or CONF.scenario_test.cleanup_error_vms:
-                    LOG.info('cleanup vm', vm=server.id)
-                    self.manager.delete_vm(server)
+            if self.ecs:
+                self.manager.report_ecs_actions(self.ecs)
 
 
 def do_test_vm():
-    test_task = VMScenarioTest()
+    test_task = ECSScenarioTest()
     try:
         test_task.run(pre_check=False)
-        return True
+        return 'ok'
     except Exception as e:
-        LOG.exception('test failed, {}', e)
-    return False
+        LOG.error('test failed, {}', e)
+        return 'ng'
 
 
 def test_with_process():
     try:
-        test_checker = VMScenarioTest()
+        test_checker = ECSScenarioTest()
         test_checker.before_run()
     except Exception as e:
         LOG.error('pre check failed: {}', e)
         return
-    LOG.info('== Start scenario test ==')
     LOG.info('worker: {}, total: {}, scenarios: {}',
              CONF.scenario_test.worker, CONF.scenario_test.total,
              CONF.scenario_test.scenarios)
 
     ng = 0
-    for success in utils.run_processes(do_test_vm,
-                                       nums=CONF.scenario_test.total,
-                                       max_workers=CONF.scenario_test.worker):
-        if not success:
+    for result in utils.run_processes(do_test_vm,
+                                      nums=CONF.scenario_test.total,
+                                      max_workers=CONF.scenario_test.worker):
+        if result == 'ng':
             ng += 1
-    if ng == 0:
-        log_func = LOG.success
-    elif ng == CONF.scenario_test.total:
-        log_func = LOG.success
-    else:
-        log_func = LOG.success
 
-    log_func('OK/NG/Total: {}/{}/{}', CONF.scenario_test.total - ng,
-             ng, CONF.scenario_test.total)
+    utils.report_results(CONF.scenario_test.total, ng)
+    if ng:
+        raise exceptions.TestFailed()
 
 
 def test_without_process():
-    run_before = False
     ng = 0
     for _ in range(CONF.scenario_test.total):
-        test_task = VMScenarioTest()
-        if not run_before:
-            test_task.before_run()
+        test_task = ECSScenarioTest()
         try:
+            test_task.before_run()
             test_task.run(pre_check=False)
-            ng += 1
         except Exception as e:
             LOG.exception('test failed, {}', e)
-
-    if ng == 0:
-        log_func = LOG.success
-    elif ng == CONF.scenario_test.total:
-        log_func = LOG.success
-    else:
-        log_func = LOG.success
-
-    log_func('OK/NG/Total: {}/{}/{}', CONF.scenario_test.total - ng, ng,
-             CONF.scenario_test.total)
+            ng += 1
+    utils.report_results(CONF.scenario_test.total, ng)
+    if ng:
+        raise exceptions.TestFailed()

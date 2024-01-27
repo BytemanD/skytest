@@ -8,13 +8,13 @@ from easy2use.globals import log as root_loger
 
 TIME_FORMAT_DEFAULT = 'YYYY-MM-DD HH:mm:ss'
 
-LOG_FOAMAT_DEFAULT = f'{{time:{TIME_FORMAT_DEFAULT}}} ' \
+DEFAULT_LOG_FOAMAT = f'{{time:{TIME_FORMAT_DEFAULT}}} ' \
                      '{process} <level>{level:7}</level> ' \
-                     '<level>[vm: {extra[vm]}] {message}</level>'
-LOG_FORMAT_FILE = f'{{time:{TIME_FORMAT_DEFAULT}}} ' \
-                  '{process} {level:7} [vm: {extra[vm]}] {message}'
+                     '<level>[ecs: {extra[ecs]}] {message}</level>'
+FILE_LOG_FORMAT = f'{{time:{TIME_FORMAT_DEFAULT}}} ' \
+                  '{process} {level:7} [ecs: {extra[ecs]}] {message}'
 
-LOG = logger.bind(vm='-')
+LOG = logger.bind(ecs='-')
 
 
 def basic_config(verbose_count=0, log_file=None):
@@ -22,7 +22,7 @@ def basic_config(verbose_count=0, log_file=None):
 
     logger.configure(handlers=[{
         "sink": log_file or sys.stdout,
-        'format': log_file and LOG_FORMAT_FILE or LOG_FOAMAT_DEFAULT,
+        'format': log_file and FILE_LOG_FORMAT or DEFAULT_LOG_FOAMAT,
         "colorize": True,
         "level": "DEBUG" if verbose_count >= 1 else "INFO",
     }])

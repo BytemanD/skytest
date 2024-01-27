@@ -2,6 +2,7 @@ from concurrent import futures
 import random
 import subprocess
 import uuid
+import functools
 
 from novaclient import exceptions as nova_exc
 import prettytable
@@ -14,6 +15,7 @@ from . import client
 from skytest.common import exceptions
 from skytest.common import utils
 from skytest.common import log
+from skytest.common import model
 
 CONF = cfg.CONF
 LOG = log.getLogger()
@@ -25,6 +27,18 @@ def create_random_str(length):
             'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
             length)
     )
+
+
+def wrap_exceptions(func):
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except nova_exc.NotFound as e:
+            raise exceptions.NotFound(e)
+
+    return wrapper
 
 
 class OpenstackManager:
@@ -62,7 +76,7 @@ class OpenstackManager:
             vms.append(vm)
         return vms
 
-    def _wait_for_vm(self, vm, status={'active'}, task_states=None,
+    def _wait_for_vm(self, ecs: model.ECS, status={'active'}, task_states=None,
                      timeout=None, interval=5):
         if isinstance(status, str):
             states = {status}
@@ -70,39 +84,32 @@ class OpenstackManager:
             states = status
         task_states = task_states or [None]
 
-        def check_vm_status():
-            vm.get()
-            vm_state = self.get_vm_state(vm)
-            if vm_state == 'error':
-                raise exceptions.VMIsError(vm=vm.id)
-            task_state = self.get_task_state(vm)
-            LOG.debug('vm_state={}, stask_state={}',
-                      vm_state, task_state, vm=vm.id)
-            return vm_state in states and task_state in task_states
+        def check_vm_status(ecs):
+            ecs = self.get_ecs(ecs.id)
+            if ecs.is_error():
+                raise exceptions.VMIsError(vm=ecs.id)
+            LOG.debug('status={}, stask state={}',
+                      ecs.status, ecs.task_state, ecs=ecs.id)
+            return ecs.status in states \
+                and ecs.task_state in task_states
 
-        retry.retry_untile_true(check_vm_status,
+        retry.retry_untile_true(check_vm_status, args=(ecs,),
                                 interval=interval, timeout=timeout)
 
-        return vm
+        return ecs
 
-    def clean_vms(self, vms):
-        for vm in vms:
-            self.delete_vm(vm)
+    def clean_vms(self, ecs_list):
+        for ecs in ecs_list:
+            self.delete_ecs(ecs)
 
-    def delete_vm(self, server, wait=True, force=False):
-        if force and not hasattr(server, 'force_delete'):
+    def delete_ecs(self, ecs: model.ECS, force=False):
+        if force and not hasattr(ecs, 'force_delete'):
             raise ValueError('force delete is not support')
+
         if force:
-            server.force_delete()
+            self.client.nova.servers.force_delete(ecs.id)
         else:
-            server.delete()
-        LOG.debug('deleting', vm=server.id)
-        if wait:
-            try:
-                self._wait_for_vm(server, status='deleted')
-            except nova_exc.NotFound:
-                LOG.debug('deleted', vm=server.id)
-        return server
+            self.client.nova.servers.delete(ecs.id)
 
     def _wait_for_volume_deleted(self, vol, timeout=None, interval=5):
 
@@ -191,10 +198,23 @@ class OpenstackManager:
 
         return vol
 
-    def attach_interfaces(self, server_id, net_id, num=1):
-        vm = self.client.nova.servers.get(server_id)
+    def attach_interface(self, ecs: model.ECS, port_id) -> str:
+        vif = self.client.nova.servers.interface_attach(ecs.id, port_id, None)
+        return vif.port_id
+
+    def attach_net(self, ecs: model.ECS, net_id) -> str:
+        # import pdb; pdb.set_trace()
+        vif = self.client.nova.servers.interface_attach(ecs.id, None, net_id,
+                                                        None)
+        return vif.port_id
+
+    def attach_interfaces(self, ecs: model.ECS, net_id, num=1):
+        vm = self.client.nova.servers.get(ecs.id)
         for _ in range(num):
             vm.interface_attach(None, net_id, None)
+
+    def detach_interface(self, ecs: model.ECS, vif: str):
+        self.client.detach_server_interface(ecs.id, vif, wait=True)
 
     def detach_interfaces(self, server_id, port_ids=None, start=0, end=None):
         if not port_ids:
@@ -301,7 +321,14 @@ class OpenstackManager:
             {'net-id': net_id} for net_id in CONF.openstack.net_ids
         ] if CONF.openstack.net_ids else 'none'
 
-    def create_server(self, name=None, timeout=1800, wait=False):
+    def _parse_server_to_ecs(self, server) -> model.ECS:
+        return model.ECS(
+            id=server.id, name=server.name,
+            status=getattr(server, 'OS-EXT-STS:vm_state', ''),
+            task_state=getattr(server, 'OS-EXT-STS:task_state', ''),
+            host=getattr(server, 'OS-EXT-SRV-ATTR:host', ''))
+
+    def create_ecs(self, name=None) -> model.ECS:
         if not name:
             name = utils.generate_name(
                 CONF.openstack.boot_from_volume and 'vol-vm' or 'img-vm')
@@ -309,11 +336,11 @@ class OpenstackManager:
         image_id = CONF.openstack.image_id
         nics = self._get_nics()
         if not name:
-            name = self.generate_name(
+            name = utils.generate_name(
                 CONF.openstack.boot_from_volume and 'vol-vm' or 'img-vm')
-        image, block_device_mapping_v2 = None, None
+        image, bdm_v2 = None, None
         if CONF.openstack.boot_from_volume:
-            block_device_mapping_v2 = [{
+            bdm_v2 = [{
                 'source_type': 'image', 'uuid': image_id,
                 'volume_size': CONF.openstack.volume_size,
                 'destination_type': 'volume', 'boot_index': 0,
@@ -321,34 +348,49 @@ class OpenstackManager:
             }]
         else:
             image = image_id
-        vm = self.client.nova.servers.create(
+        server = self.client.nova.servers.create(
             name, image, self.get_flavor_id(CONF.openstack.flavor), nics=nics,
-            block_device_mapping_v2=block_device_mapping_v2,
+            block_device_mapping_v2=bdm_v2,
             availability_zone=CONF.openstack.boot_az)
-        LOG.info('booting with {}',
-                 'bdm' if block_device_mapping_v2 else 'image',
-                 vm=vm.id)
-        if wait:
-            try:
-                self._wait_for_vm(vm, timeout=timeout)
-            except exceptions.VMIsError:
-                raise exceptions.VmCreatedFailed(vm=vm.id)
-            LOG.debug('created, host is {}',
-                      vm.id, getattr(vm, 'OS-EXT-SRV-ATTR:host'))
-        return vm
+        LOG.info('booting with {}', 'bdm' if bdm_v2 else 'image',
+                 ecs=server.id)
 
-    def report_server_actions(self, vm):
+        return self.get_ecs(server.id)
+
+    def get_ecs(self, ecs_id):
+        try:
+            server = self.client.nova.servers.get(ecs_id)
+        except nova_exc.NotFound:
+            raise exceptions.ECSNotFound(ecs_id)
+        return self._parse_server_to_ecs(server)
+
+    def stop_ecs(self, ecs):
+        self.client.nova.servers.stop(ecs.id)
+
+    def start_ecs(self, ecs):
+        self.client.nova.servers.start(ecs.id)
+
+    def reboot_ecs(self, ecs):
+        self.client.nova.servers.reboot(ecs.id)
+
+    def hard_reboot_ecs(self, ecs):
+        self.client.nova.servers.reboot(ecs.id, reboot_type='HARD')
+
+    def get_ecs_console_log(self, ecs: model.ECS):
+        return self.client.nova.servers.get_console_output(ecs.id)
+
+    def report_ecs_actions(self, ecs: model.ECS):
         pt = prettytable.PrettyTable(['Action', 'Event', 'StartTime',
-                                      'EndTime', 'Result'])
-        vm_actions = self.client.get_vm_events(vm)
+                                      'EndTime', 'Host', 'Result'])
+        vm_actions = self.client.get_server_events(ecs.id)
         vm_actions = sorted(vm_actions, key=lambda x: x[1][0]['start_time'])
         for action_name, events in vm_actions:
             for i, event in enumerate(events):
                 pt.add_row([action_name if i == 0 else "",
-                            event['event'],
-                            event['start_time'], event['finish_time'],
+                            event['event'], event['start_time'],
+                            event['finish_time'], event.get('host'),
                             event['result']])
-        LOG.info('actions:\n{}', pt, vm=vm.id)
+        LOG.info('actions:\n{}', pt, ecs=ecs.id)
 
     def get_server_host(self, server):
         return getattr(server, 'OS-EXT-SRV-ATTR:host')
@@ -356,24 +398,24 @@ class OpenstackManager:
     def get_server_id(self, server):
         return getattr(server, 'id')
 
-    def _wait_for_console_log(self, vm, interval=10):
-        def check_vm_console_log():
-            output = vm.get_console_output(length=10)
-            LOG.debug('console log: {}', output, vm=vm.id)
-            for key in CONF.boot.console_log_error_keys:
-                if key not in output:
-                    continue
-                LOG.error('found "{}" in conosole log', vm.id, key)
-                raise exceptions.BootFailed(vm=vm.id)
+    # def _wait_for_console_log(self, vm, interval=10):
+    #     def check_vm_console_log():
+    #         output = vm.get_console_output(length=10)
+    #         LOG.debug('console log: {}', output, vm=vm.id)
+    #         for key in CONF.boot.console_log_error_keys:
+    #             if key not in output:
+    #                 continue
+    #             LOG.error('found "{}" in conosole log', vm.id, key)
+    #             raise exceptions.BootFailed(vm=vm.id)
 
-            match_ok = sum(
-                key in output for key in CONF.boot.console_log_ok_keys
-            )
-            if match_ok == len(CONF.boot.console_log_ok_keys):
-                return True
+    #         match_ok = sum(
+    #             key in output for key in CONF.boot.console_log_ok_keys
+    #         )
+    #         if match_ok == len(CONF.boot.console_log_ok_keys):
+    #             return True
 
-        retry.retry_untile_true(check_vm_console_log, interval=interval,
-                                timeout=600)
+    #     retry.retry_untile_true(check_vm_console_log, interval=interval,
+    #                             timeout=600)
 
     def wait_for_vm_task_finished(self, vm, timeout=None, interval=5):
 
@@ -388,16 +430,14 @@ class OpenstackManager:
 
         return vm
 
-    def get_vm_ips(self, vm):
+    def get_ecs_interfaces(self, ecs: model.ECS) -> list:
+        return [vif.port_id for vif in self.client.list_interface(ecs.id)]
+
+    def get_ecs_ip_address(self, ecs: model.ECS):
         ip_list = []
-        for vif in self.client.list_interface(vm.id):
+        for vif in self.client.list_interface(ecs.id):
             ip_list.extend([ip['ip_address'] for ip in vif.fixed_ips])
         return ip_list
-
-    def get_vm_interfaces(self, vm):
-        return [
-            vif.port_id for vif in self.client.list_interface(vm.id)
-        ]
 
     def attach_volume(self, vm, volume_id, wait=False, check_with_qga=False):
         self.client.attach_volume(vm.id, volume_id)

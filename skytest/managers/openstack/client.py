@@ -104,10 +104,10 @@ class OpenstackClient(object):
                 actions[action.action].append(event)
         return actions
 
-    def get_vm_events(self, vm):
+    def get_server_events(self, server_id):
         action_events = []
-        for action in self.nova.instance_action.list(vm.id):
-            vm_action = self.nova.instance_action.get(vm.id,
+        for action in self.nova.instance_action.list(server_id):
+            vm_action = self.nova.instance_action.get(server_id,
                                                       action.request_id)
             events = sorted(vm_action.events,
                             key=lambda x: x.get('start_time'))
@@ -120,7 +120,6 @@ class OpenstackClient(object):
     def detach_server_interface(self, server_id, port_id, wait=False,
                                 interval=5, timeout=600):
         self.detach_interface(server_id, port_id)
-
         if not wait:
             return
 
@@ -128,10 +127,10 @@ class OpenstackClient(object):
             interfaces = self.get_server_interfaces(server_id)
             return all(interface.id != port_id for interface in interfaces)
 
-        LOG.debug('[vm: %s] interface %s detaching', server_id, port_id)
+        LOG.debug('interface {} detaching', port_id, ecs=server_id)
         retry.retry_untile_true(_check_interface,
                                 interval=interval, timeout=timeout)
-        LOG.debug('[vm: %s] interface %s detached', server_id, port_id)
+        LOG.debug('interface {} detached', port_id, ecs=server_id)
 
     def list_volumes(self, all_tenants=False):
         return self.cinder.volumes.list({'all_tenants': all_tenants})

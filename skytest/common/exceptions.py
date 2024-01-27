@@ -110,7 +110,7 @@ class InvalidScenario(base_exc.BaseException):
 
 
 class InvalidConfig(base_exc.BaseException):
-    _msg = 'Invalid config, {reason}.'
+    _msg = 'Config is invalid because {reason}.'
 
 
 class InvalidFlavor(base_exc.BaseException):
@@ -121,7 +121,7 @@ class InvalidImage(base_exc.BaseException):
     _msg = 'Invalid image, reason: {reason}.'
 
 
-class VMTestFailed(base_exc.BaseException):
+class EcsTestFailed(base_exc.BaseException):
     _msg = 'vm {vm} {action} falied, {reason}.'
 
 
@@ -131,3 +131,19 @@ class GuestDomainIpaddressNotExists(base_exc.BaseException):
 
 class HypervisorNotFound(base_exc.BaseException):
     _msg = 'hypervisor {} not found.'
+
+
+class ECSNotFound(base_exc.BaseException):
+    _msg = 'ECS {} not found.'
+
+
+class NotFound(base_exc.BaseException):
+    _msg = 'not found error: {}'
+
+
+class TestFailed(base_exc.BaseException):
+    _msg = 'test failed'
+
+
+class SkipActionException(base_exc.BaseException):
+    _msg = 'skip this action because {}'

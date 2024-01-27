@@ -27,6 +27,7 @@ openstack_opts = [
 ]
 
 scenario_test_opts = [
+    cfg.Option('ecs_id'),
     cfg.IntOption('total', default=1),
     cfg.IntOption('worker', default=1),
     cfg.BooleanOption('attach_net', default=False),
@@ -47,7 +48,7 @@ scenario_test_opts = [
 
     cfg.Option('mode', default='coroutine'),
     cfg.BooleanOption('random_order', default=False),
-    cfg.ListOption('scenarios', default=[]),
+    cfg.ListOption('scenarios', default=['create']),
 
     cfg.IntOption('attach_interface_nums_each_time', default=1),
     cfg.IntOption('attach_interface_loop_times', default=2),

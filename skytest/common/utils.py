@@ -38,7 +38,7 @@ def load_env(env_file):
 
 
 # TODO: move this to easy2use
-def echo(message=None, list_join: str=None):
+def echo(message=None, list_join: str = None):
     if isinstance(message, bytes):
         print(message.decode())
         return
@@ -92,3 +92,12 @@ def is_uuid(text):
     except (TypeError, ValueError, AttributeError):
         return False
     return True
+
+
+def report_results(total, ng):
+    if ng > 0:
+        log_func = LOG.error
+    else:
+        log_func = LOG.success
+
+    log_func('Total: {}, OK: {}, NG: {}', total, total - ng, ng)

@@ -33,7 +33,13 @@ def vm_scenario_test(verbose, log_file, conf_file):
         sys.exit(1)
 
     if CONF.scenario_test.worker == 1:
-        scenario.test_without_process()
+        try:
+            scenario.test_without_process()
+        except (exceptions.InvalidConfig) as e:
+            LOG.error('{}', e)
+            sys.exit(1)
+        except exceptions.TestFailed:
+            sys.exit(1)
     else:
         scenario.test_with_process()
 
