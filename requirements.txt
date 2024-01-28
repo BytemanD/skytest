@@ -1,6 +1,7 @@
 wheel
 click
 loguru
+retry
 
 # libvirt-python==6.2.0
 python-novaclient

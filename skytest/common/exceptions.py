@@ -147,3 +147,31 @@ class TestFailed(base_exc.BaseException):
 
 class SkipActionException(base_exc.BaseException):
     _msg = 'skip this action because {}'
+
+
+class EcsIsNotCreated(base_exc.BaseException):
+    _msg = 'ECS {} still not created'
+
+
+class EcsIsNotDeleted(base_exc.BaseException):
+    _msg = 'ECS {} still not deleted'
+
+
+class EcsHasTask(base_exc.BaseException):
+    _msg = 'ECS {} still has task'
+
+
+class VolumeIsNotAvailable(base_exc.BaseException):
+    _msg = 'Volume {} is not available'
+
+
+class VolumeIsError(base_exc.BaseException):
+    _msg = 'Volume {} is error'
+
+
+class VolumeIsNotDeleted(base_exc.BaseException):
+    _msg = 'Volume {} is still not deleted'
+
+
+class VolumeNotFound(base_exc.BaseException):
+    _msg = 'Volume {} not found.'

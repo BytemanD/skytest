@@ -101,3 +101,13 @@ def report_results(total, ng):
         log_func = LOG.success
 
     log_func('Total: {}, OK: {}, NG: {}', total, total - ng, ng)
+
+
+def count_repeat_words(words: list) -> list:
+    repeat_list = []
+    for word in words:
+        if repeat_list and word == repeat_list[-1]['word']:
+            repeat_list[-1]['count'] += 1
+        else:
+            repeat_list.append({'word': word, 'count': 1})
+    return repeat_list

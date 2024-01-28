@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 @dataclass
 class ECS:
-
     id: str
     name: str = ''
     status: str = ''
@@ -22,5 +21,28 @@ class ECS:
     def is_error(self):
         return self.status.upper() == 'ERROR'
 
+    def is_building(self):
+        return self.status.upper() == 'BUILDING'
+
     def has_task(self):
         return not not self.task_state
+
+
+@dataclass
+class Volume:
+    id: str
+    size: int
+    name: str = ''
+    status: str = ''
+
+    def is_error(self):
+        return self.status.upper() == 'ERROR'
+
+    def is_in_use(self):
+        return self.status.upper().replace('-', '_') == 'IN_USE'
+
+    def is_creating(self):
+        return self.status.upper() == 'CREATING'
+
+    def is_available(self):
+        return self.status.upper() == 'AVAILABLE'

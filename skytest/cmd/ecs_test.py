@@ -18,7 +18,7 @@ def main():
 @click.option('-c', '--conf', 'conf_file')
 @click.option('--log-file')
 @click.option('-v', '--verbose', type=bool, multiple='count', is_flag=True)
-def vm_scenario_test(verbose, log_file, conf_file):
+def action_test(verbose, log_file, conf_file):
     """VM scenario test
     """
     global LOG
@@ -32,16 +32,19 @@ def vm_scenario_test(verbose, log_file, conf_file):
         LOG.error('load config failed, {}', e)
         sys.exit(1)
 
-    if CONF.scenario_test.worker == 1:
-        try:
+    LOG.info('worker: {}, total: {}, scenarios: {}',
+             CONF.scenario_test.worker, CONF.scenario_test.total,
+             CONF.scenario_test.scenarios)
+
+    try:
+        if CONF.scenario_test.worker == 1:
             scenario.test_without_process()
-        except (exceptions.InvalidConfig) as e:
-            LOG.error('{}', e)
-            sys.exit(1)
-        except exceptions.TestFailed:
-            sys.exit(1)
-    else:
-        scenario.test_with_process()
+        else:
+            scenario.test_with_process()
+    except (exceptions.InvalidConfig, exceptions.InvalidScenario,
+            exceptions.TestFailed, exceptions.EcsTestFailed) as e:
+        LOG.error('{}', e)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

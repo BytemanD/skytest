@@ -64,6 +64,14 @@ class BaseManager(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def attach_volume(self, ecs: model.ECS, volume_id: str):
+        pass
+
+    @abc.abstractmethod
+    def detach_volume(self, ecs: model.ECS, volume_id: str):
+        pass
+
+    @abc.abstractmethod
     def report_ecs_actions(self, ecs: model.ECS):
         pass
 
@@ -88,6 +96,19 @@ class BaseManager(metaclass=abc.ABCMeta):
     def get_libvirt_guest(self, ecs: model.ECS) -> libvirt_guest.LibvirtGuest:
         host_ip = self.get_host_ip(self.server.host)
         return libvirt_guest.LibvirtGuest(ecs.id, host=host_ip)
+
+    @abc.abstractmethod
+    def create_volume(self, size_gb=None, name=None, image=None,
+                      snapshot=None, volume_type=None) -> model.Volume:
+        pass
+
+    @abc.abstractmethod
+    def get_volume(self, volume_id) -> model.Volume:
+        pass
+
+    @abc.abstractmethod
+    def delete_volume(self, volume: model.Volume):
+        pass
 
 
 def get_manager():

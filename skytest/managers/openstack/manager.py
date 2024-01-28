@@ -4,10 +4,12 @@ import subprocess
 import uuid
 import functools
 
-from novaclient import exceptions as nova_exc
 import prettytable
 
-from easy2use.common import retry
+from novaclient import exceptions as nova_exc
+from cinderclient import exceptions as cinder_exc
+
+from easy2use.common import retry as easy_retry
 from easy2use.component import pbr
 from easy2use.globals import cfg
 
@@ -93,8 +95,8 @@ class OpenstackManager:
             return ecs.status in states \
                 and ecs.task_state in task_states
 
-        retry.retry_untile_true(check_vm_status, args=(ecs,),
-                                interval=interval, timeout=timeout)
+        easy_retry.retry_untile_true(check_vm_status, args=(ecs,),
+                                     interval=interval, timeout=timeout)
 
         return ecs
 
@@ -120,8 +122,8 @@ class OpenstackManager:
                 LOG.debug(e)
                 return True
 
-        retry.retry_untile_true(is_volume_not_found,
-                                interval=interval, timeout=timeout)
+        easy_retry.retry_untile_true(is_volume_not_found,
+                                     interval=interval, timeout=timeout)
 
     def delete_vms(self, name=None, host=None, status=None, all_tenants=False,
                    workers=None, force=False):
@@ -166,38 +168,6 @@ class OpenstackManager:
 
         return volumes
 
-    def create_volume(self, size_gb=None, name=None, image=None,
-                      snapshot=None, wait=False, interval=1,
-                      volume_type=None):
-        timeout = 600
-
-        def compute_volume_finished(result):
-            LOG.debug('volume {} status: {}', result.id, result.status)
-            if result.status == 'error':
-                LOG.error('volume {} created failed', result.id)
-                return exceptions.VolumeCreateTimeout(volume=result.id,
-                                                      timeout=timeout)
-            return result.status == 'available'
-
-        name = name or utils.generate_name('vol')
-        LOG.debug('creating volume {}, image={}, snapshot={}',
-                  name, image, snapshot)
-        try:
-            vol = self.client.create_volume(name, size_gb=size_gb,
-                                            image_ref=image, snapshot=snapshot,
-                                            volume_type=volume_type)
-        except Exception as e:
-            LOG.error(e)
-            raise
-
-        if wait:
-            # TODO: add timeout argument
-            retry.retry_for(self.client.get_volume, args=(vol.id,),
-                            interval=interval, timeout=timeout,
-                            finish_func=compute_volume_finished)
-
-        return vol
-
     def attach_interface(self, ecs: model.ECS, port_id) -> str:
         vif = self.client.nova.servers.interface_attach(ecs.id, port_id, None)
         return vif.port_id
@@ -239,13 +209,6 @@ class OpenstackManager:
             for _ in futures.as_completed(tasks):
                 completed += 1
                 LOG.info('deleted volume {}', completed)
-
-    def delete_volume(self, volume, wait=False):
-        LOG.debug('delete volume {}', volume.id)
-        self.client.delete_volume(volume.id)
-        if not wait:
-            return
-        self._wait_for_volume_deleted(volume, timeout=60)
 
     def rbd_ls(self, pool):
         status, lines = subprocess.getstatusoutput(f'rbd ls {pool}')
@@ -324,9 +287,9 @@ class OpenstackManager:
     def _parse_server_to_ecs(self, server) -> model.ECS:
         return model.ECS(
             id=server.id, name=server.name,
-            status=getattr(server, 'OS-EXT-STS:vm_state', ''),
-            task_state=getattr(server, 'OS-EXT-STS:task_state', ''),
-            host=getattr(server, 'OS-EXT-SRV-ATTR:host', ''))
+            status=getattr(server, 'OS-EXT-STS:vm_state') or '',
+            task_state=getattr(server, 'OS-EXT-STS:task_state') or '',
+            host=getattr(server, 'OS-EXT-SRV-ATTR:host') or '')
 
     def create_ecs(self, name=None) -> model.ECS:
         if not name:
@@ -425,9 +388,8 @@ class OpenstackManager:
             LOG.debug('stask_state={}', vm.id, task_state)
             return not task_state
 
-        retry.retry_untile_true(check_vm_status,
-                                interval=interval, timeout=timeout)
-
+        easy_retry.retry_untile_true(check_vm_status,
+                                     interval=interval, timeout=timeout)
         return vm
 
     def get_ecs_interfaces(self, ecs: model.ECS) -> list:
@@ -439,45 +401,39 @@ class OpenstackManager:
             ip_list.extend([ip['ip_address'] for ip in vif.fixed_ips])
         return ip_list
 
-    def attach_volume(self, vm, volume_id, wait=False, check_with_qga=False):
-        self.client.attach_volume(vm.id, volume_id)
-        LOG.info('attaching volume {}', volume_id, vm=vm.id)
-        if not wait:
-            return
-
-        def check_volume():
-            vol = self.client.cinder.volumes.get(volume_id)
-            LOG.debug('volume {} status: {}', volume_id, vol.status, vm=vm.id)
-            if vol.status == 'error':
-                raise exceptions.VolumeDetachFailed(volume=volume_id)
-            return vol.status == 'in-use'
-
-        retry.retry_untile_true(check_volume, interval=5, timeout=600)
-        if check_with_qga:
-            # qga = guest.QGAExecutor()
-            # TODO: check with qga
-            pass
-            LOG.warning('TODO check with qga')
-        LOG.info('attached volume {}', volume_id, vm=vm.id)
-
-    def detach_volume(self, vm, volume_id, wait=False):
-        self.client.detach_volume(vm.id, volume_id)
-        LOG.info('detaching volume {}', volume_id, vm=vm.id)
-        if not wait:
-            return
-
-        def check_volume():
-            vol = self.client.cinder.volumes.get(volume_id)
-            if vol.status == 'error':
-                raise exceptions.VolumeDetachFailed(volume=volume_id)
-            return vol.status == 'available'
-
-        retry.retry_untile_true(check_volume, interval=5, timeout=600)
-        LOG.info('detached volume {}', volume_id, vm=vm.id)
-
     def get_host_ip(self, hostname):
         hypervisors = self.client.nova.hypervisors.search(hostname)
         if not hypervisors:
             raise exceptions.HypervisorNotFound(hostname)
         hypervisors[0].get()
         return hypervisors[0].host_ip
+
+    def _parse_volume(self, vol) -> model.Volume:
+        return model.Volume(vol.id, vol.size, name=vol.name or '',
+                            status=vol.status or '')
+
+    def get_volume(self, volume_id) -> model.Volume:
+        try:
+            volume = self.client.cinder.volumes.get(volume_id)
+            return self._parse_volume(volume)
+        except cinder_exc.NotFound:
+            raise exceptions.VolumeNotFound(volume_id)
+
+    def create_volume(self, size_gb=None, name=None, image=None,
+                      snapshot=None, volume_type=None):
+        name = name or utils.generate_name('vol')
+        LOG.debug('creating volume {}, image={}, snapshot={}',
+                  name, image, snapshot)
+        vol = self.client.create_volume(name, size_gb=size_gb,
+                                        image_ref=image, snapshot=snapshot,
+                                        volume_type=volume_type)
+        return self._parse_volume(vol)
+
+    def delete_volume(self, volume: model.Volume):
+        self.client.delete_volume(volume.id)
+
+    def attach_volume(self, ecs: model.ECS, volume_id: str):
+        self.client.attach_volume(ecs.id, volume_id)
+
+    def detach_volume(self, ecs: model.ECS, volume_id):
+        self.client.detach_volume(ecs.id, volume_id)
