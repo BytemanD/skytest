@@ -162,4 +162,5 @@ cython_debug/
 AUTHORS
 ChangeLog
 
-etc/skytest*.conf
+etc/skytest-*.conf
+etc/skytest-*.toml

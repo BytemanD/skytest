@@ -1,3 +1,4 @@
+import re
 from retry import retry
 
 from easy2use.globals import cfg
@@ -7,6 +8,7 @@ from skytest.common import exceptions
 from skytest.common import log
 from skytest.managers import base
 from skytest.common import model
+from skytest.common import libvirt_guest
 
 CONF = cfg.CONF
 LOG = log.getLogger()
@@ -17,6 +19,7 @@ class EcsActionTestBase(object):
     def __init__(self, ecs: model.ECS, manager: base.BaseManager) -> None:
         self.ecs = ecs
         self.manager = manager
+        self._guest: libvirt_guest.LibvirtGuest = None
 
     def tear_up(self): pass
     def tear_down(self): pass
@@ -73,7 +76,6 @@ class EcsActionTestBase(object):
             raise exceptions.EcsHasTask(self.ecs.id)
 
     def wait_for_ecs_console_log(self, timeout=None, interval=5):
-
         def check_vm_console_log():
             output = self.manager.get_ecs_console_log(self.ecs)
             LOG.debug('console log: {}', output, ecs=self.ecs.id)
@@ -93,14 +95,15 @@ class EcsActionTestBase(object):
     @retry(exceptions=exceptions.VolumeIsNotAvailable,
            tries=60, delay=1, backoff=2, max_delay=10)
     def wait_volume_created(self, volume: model.Volume):
+        LOG.info('waiting volume {} created', volume.id, ecs=self.ecs.id)
         volume = self.manager.get_volume(volume.id)
-        LOG.info('volume {} status: {}', volume.id, volume.status,
-                 ecs=self.ecs.id)
+        LOG.debug('volume {} status: {}', volume.id, volume.status,
+                  ecs=self.ecs.id)
         if volume.is_error():
             raise exceptions.VolumeIsError(volume.id)
         if volume.is_creating():
             raise exceptions.VolumeIsNotAvailable(volume.id)
-        LOG.info('volume {} created', volume.id, ecs=self.ecs.id)
+        LOG.debug('volume {} created', volume.id, ecs=self.ecs.id)
         return volume
 
     @retry(exceptions=exceptions.VolumeIsNotDeleted,
@@ -135,6 +138,46 @@ class EcsActionTestBase(object):
     #         LOG.warning('TODO check with qga')
     #     LOG.info('attached volume {}', volume_id, vm=vm.id)
 
+    def get_libvirt_guest(self):
+        ecs_host_ip = self.manager.get_host_ip(self.ecs.host)
+        if not self._guest or self._guest.host != ecs_host_ip:
+            self._guest = libvirt_guest.LibvirtGuest(self.ecs.id,
+                                                     host=ecs_host_ip)
+        return self._guest
+
+    @retry(exceptions=exceptions.EcsDoseNotHaveIpAddress,
+           tries=60, delay=1, backoff=2, max_delay=10)
+    def guest_must_have_all_ipaddress(self):
+        if not CONF.scenario_test.enable_varify_guest_ip_address:
+            return
+        ecs_ip_address = set(self.manager.get_ecs_ip_address(self.ecs))
+        LOG.info("ecs has ip address: {}", ecs_ip_address, ecs=self.ecs.id)
+        found = set(
+            re.findall(r'inet ([0-9.]+)/', self.get_libvirt_guest().ip_a()))
+        LOG.debug('found ip address: {}', found, ecs=self.ecs.id)
+        if '127.0.0.1' in found:
+            found.remove('127.0.0.1')
+        if set(ecs_ip_address) != set(found):
+            raise exceptions.EcsDoseNotHaveIpAddress(self.ecs.id,
+                                                     ecs_ip_address - found)
+        LOG.info('domain has all ip address {}', ecs_ip_address,
+                 ecs=self.ecs.id)
+
+    @retry(exceptions=exceptions.EcsDoseNotHaveBlock,
+           tries=60, delay=1, backoff=2, max_delay=10)
+    def guest_must_have_all_block(self):
+        if not CONF.scenario_test.enable_varify_guest_block:
+            return
+        ecs_blocks = set(self.manager.get_ecs_blocks(self.ecs))
+        LOG.info("ecs has blocks: {}", ecs_blocks, ecs=self.ecs.id)
+        found = set(re.findall(r'NAME="([a-zA-Z/]+)"',
+                               self.get_libvirt_guest().lsblk()))
+        LOG.debug('found blocks: {}', found, ecs=self.ecs.id)
+        if set(ecs_blocks) != set(found):
+            raise exceptions.EcsDoseNotHaveBlock(self.ecs.id,
+                                                 ecs_blocks - found)
+        LOG.info('domain has all blocks {}', ecs_blocks, ecs=self.ecs.id)
+
 
 class EcsCreateTest(EcsActionTestBase):
 
@@ -148,6 +191,7 @@ class EcsCreateTest(EcsActionTestBase):
             raise exceptions.EcsTestFailed(
                 vm=self.ecs.id, action='create',
                 reason=f'{e}')
+        self.guest_must_have_all_ipaddress()
         LOG.success('create success', ecs=self.ecs.id)
 
     def tear_down(self):
@@ -221,18 +265,14 @@ class EcsAttachInterfaceTest(EcsActionTestBase):
         self.attached_vifs = []
 
     def start(self):
-        for j in range(CONF.scenario_test.attach_interface_nums_each_time):
-            LOG.info('attaching interface {}/{}', j+1,
-                     CONF.scenario_test.attach_interface_nums_each_time,
-                     ecs=self.ecs.id)
-            vif = self.manager.attach_net(self.ecs,
-                                          CONF.openstack.attach_net)
-            self.ecs = self.manager.get_ecs(self.ecs.id)
-            if self.ecs.is_error():
-                raise exceptions.EcsTestFailed(
-                    ecs=self.ecs.id, action='attach_interface',
-                    reason=f'ecs is error after attach interface {vif}')
-            self.attached_vifs.append(vif)
+        LOG.info('attaching interface', ecs=self.ecs.id)
+        vif = self.manager.attach_net(self.ecs, CONF.openstack.attach_net)
+        self.ecs = self.manager.get_ecs(self.ecs.id)
+        if self.ecs.is_error():
+            raise exceptions.EcsTestFailed(
+                ecs=self.ecs.id, action='attach_interface',
+                reason=f'ecs is error after attach interface {vif}')
+        self.attached_vifs.append(vif)
 
         vifs = self.manager.get_ecs_interfaces(self.ecs)
         LOG.debug('ecs interfaces: {}', vifs, ecs=self.ecs.id)
@@ -240,7 +280,8 @@ class EcsAttachInterfaceTest(EcsActionTestBase):
             if vif_id not in vifs:
                 raise exceptions.EcsTestFailed(
                     ecs=self.ecs.id, action='attach_interface',
-                    reason=f'vif {vif} not in vm interfaces {vifs}')
+                    reason=f'ecs does not have interface {vif}')
+        self.guest_must_have_all_ipaddress()
         LOG.success('test attach interface success', ecs=self.ecs.id)
 
     def tear_down(self):
@@ -301,6 +342,7 @@ class EcsAttachVolumeTest(EcsActionTestBase):
                 vm=self.ecs.id, action='attach_volume',
                 reason=f'volume {volume.id} not in use')
         self.attached_volumes.append(volume)
+        self.guest_must_have_all_block()
         LOG.success('== attach volumes success', ecs=self.ecs.id)
 
     def tear_down(self):

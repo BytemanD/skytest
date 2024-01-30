@@ -19,7 +19,7 @@ def main():
 @click.option('--log-file')
 @click.option('-v', '--verbose', type=bool, multiple='count', is_flag=True)
 def action_test(verbose, log_file, conf_file):
-    """VM scenario test
+    """ECS scenario test
     """
     global LOG
 
@@ -42,7 +42,8 @@ def action_test(verbose, log_file, conf_file):
         else:
             scenario.test_with_process()
     except (exceptions.InvalidConfig, exceptions.InvalidScenario,
-            exceptions.TestFailed, exceptions.EcsTestFailed) as e:
+            exceptions.TestFailed, exceptions.EcsTestFailed,
+            ) as e:
         LOG.error('{}', e)
         sys.exit(1)
 

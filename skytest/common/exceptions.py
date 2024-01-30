@@ -129,6 +129,10 @@ class GuestDomainIpaddressNotExists(base_exc.BaseException):
     _msg = 'ipaddress {} not exsits on guest domain.'
 
 
+class GuestnIpaddressNotExists(base_exc.BaseException):
+    _msg = 'ipaddress {} not exsits on guest domain.'
+
+
 class HypervisorNotFound(base_exc.BaseException):
     _msg = 'hypervisor {} not found.'
 
@@ -175,3 +179,15 @@ class VolumeIsNotDeleted(base_exc.BaseException):
 
 class VolumeNotFound(base_exc.BaseException):
     _msg = 'Volume {} not found.'
+
+
+class EcsDoseNotHaveIpAddress(base_exc.BaseException):
+    _msg = 'ecs {} does not ip address {}.'
+
+
+class EcsDoseNotHaveBlock(base_exc.BaseException):
+    _msg = 'ecs {} does not block {}.'
+
+
+class EcsCloudAPIError(base_exc.BaseException):
+    _msg = 'cloud api error: {}.'

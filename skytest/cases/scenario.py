@@ -84,18 +84,7 @@ class ECSScenarioTest(object):
         self._check_image()
         self._check_services()
 
-    def domain_must_has_all_ipaddress(self):
-        guest = self.manager.get_libvirt_guest(self.ecs)
-        result = guest.ip_a()
-        vm_ipaddresses = self.manager.get_ecs_ip_address(self.ecs)
-
-        for ipaddress in vm_ipaddresses:
-            if f'inet {ipaddress}/' not in result:
-                raise exceptions.GuestDomainIpaddressNotExists(ipaddress)
-        LOG.success('domain has all ip address {}', vm_ipaddresses,
-                    vm=self.ecs.id)
-
-    def run(self, pre_check=True):
+    def _test_actions(self, pre_check=True):
         if pre_check:
             self.before_run()
         LOG.info('==== Start ECS action test ====')
@@ -104,41 +93,46 @@ class ECSScenarioTest(object):
             for ac in utils.count_repeat_words(self.actions)
         ]
         LOG.info('test actions: {}', ' -> '.join(action_count))
-        try:
-            if CONF.scenario_test.ecs_id and 'create' not in self.actions[:1]:
-                LOG.warning('test with ecs {}', CONF.scenario_test.ecs_id)
-                self.ecs = self.manager.get_ecs(CONF.scenario_test.ecs_id)
+
+        if CONF.scenario_test.ecs_id and 'create' not in self.actions[:1]:
+            LOG.warning('test with ecs {}', CONF.scenario_test.ecs_id)
+            self.ecs = self.manager.get_ecs(CONF.scenario_test.ecs_id)
+        else:
+            self.ecs = None
+
+        jobs: list[ecs_actions.EcsActionTestBase] = []
+        for action in self.actions:
+            test_cls = ecs_actions.VM_TEST_SCENARIOS.get(action)
+            job: ecs_actions.EcsActionTestBase = test_cls(self.ecs,
+                                                          self.manager)
+            try:
+                job.run()
+            except exceptions.SkipActionException as e:
+                LOG.warning('{}', e, ecs=(self.ecs and self.ecs.id))
             else:
-                self.ecs = None
+                self.ecs = job.ecs
+                jobs.append(job)
 
-            # guest = self.manager.get_libvirt_guest(self.ecs)
-            # if not guest.is_exists():
-            #     raise Exception('domain is not exists')
-            # LOG.info('domain info {}', guest.info(), vm=self.ecs.id)
+        LOG.info('==== Tear Down ECS action test ====')
+        for job in reversed(jobs):
+            job.tear_down()
 
-            # self.domain_must_has_all_ipaddress()
-            jobs: list[ecs_actions.EcsActionTestBase] = []
-            for action in self.actions:
-                test_cls = ecs_actions.VM_TEST_SCENARIOS.get(action)
-                job: ecs_actions.EcsActionTestBase = test_cls(self.ecs,
-                                                              self.manager)
-                try:
-                    job.run()
-                except exceptions.SkipActionException as e:
-                    LOG.warning('{}', e, ecs=(self.ecs and self.ecs.id))
-                else:
-                    self.ecs = job.ecs
-                    jobs.append(job)
+    def _cleanup(self):
+        if not CONF.scenario_test.ecs_id and self.ecs and \
+           CONF.scenario_test.cleanup_error_vms:
+            LOG.info('cleanup', ecs=self.ecs.id)
+            self.manager.delete_ecs(self.ecs)
 
-            LOG.info('==== Tear Down ECS action test ====')
-            for job in reversed(jobs):
-                job.tear_down()
-        except Exception as e:
-            if not CONF.scenario_test.ecs_id and self.ecs and \
-               CONF.scenario_test.cleanup_error_vms:
-                LOG.info('cleanup', ecs=self.ecs.id)
-                self.manager.delete_ecs(self.ecs)
+    def run(self, pre_check=True):
+        try:
+            self._test_actions(pre_check=pre_check)
+        except exceptions.EcsTestFailed as e:
+            self._cleanup()
             raise e
+        except Exception as e:
+            self._cleanup()
+            raise exceptions.EcsTestFailed(vm=self.ecs and self.ecs.id,
+                                           action='test', reason=e)
         else:
             LOG.success('==== test success ====', ecs=self.ecs.id)
         finally:

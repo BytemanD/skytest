@@ -141,6 +141,9 @@ class OpenstackClient(object):
         except nova_exc.NotFound:
             return self.nova.flavors.find(name=id_or_name)
 
+    def get_ecs_volumes(self, vm_id) -> list:
+        return self.nova.volumes.get_server_volumes(vm_id)
+
 
 def factory():
     return OpenstackClient.create_instance()

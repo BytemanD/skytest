@@ -13,11 +13,11 @@ from easy2use.common import retry as easy_retry
 from easy2use.component import pbr
 from easy2use.globals import cfg
 
-from . import client
 from skytest.common import exceptions
 from skytest.common import utils
 from skytest.common import log
 from skytest.common import model
+from . import client
 
 CONF = cfg.CONF
 LOG = log.getLogger()
@@ -37,9 +37,8 @@ def wrap_exceptions(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except nova_exc.NotFound as e:
-            raise exceptions.NotFound(e)
-
+        except nova_exc.ClientException as e:
+            raise exceptions.EcsCloudAPIError(e)
     return wrapper
 
 
@@ -168,21 +167,25 @@ class OpenstackManager:
 
         return volumes
 
+    @wrap_exceptions
     def attach_interface(self, ecs: model.ECS, port_id) -> str:
         vif = self.client.nova.servers.interface_attach(ecs.id, port_id, None)
         return vif.port_id
 
+    @wrap_exceptions
     def attach_net(self, ecs: model.ECS, net_id) -> str:
         # import pdb; pdb.set_trace()
         vif = self.client.nova.servers.interface_attach(ecs.id, None, net_id,
                                                         None)
         return vif.port_id
 
+    @wrap_exceptions
     def attach_interfaces(self, ecs: model.ECS, net_id, num=1):
         vm = self.client.nova.servers.get(ecs.id)
         for _ in range(num):
             vm.interface_attach(None, net_id, None)
 
+    @wrap_exceptions
     def detach_interface(self, ecs: model.ECS, vif: str):
         self.client.detach_server_interface(ecs.id, vif, wait=True)
 
@@ -244,6 +247,7 @@ class OpenstackManager:
                 bar.update(1)
             bar.close()
 
+    @wrap_exceptions
     def get_available_services(self, host=None, zone=None, binary=None):
         services = self.client.nova.services.list(host=host, binary=binary)
         if zone:
@@ -252,6 +256,7 @@ class OpenstackManager:
             s for s in services if s.status == 'enabled' and s.state == 'up'
         ]
 
+    @wrap_exceptions
     def get_flavor_id(self, flavor):
         if not flavor:
             raise exceptions.InvalidConfig(reason='flavor is none')
@@ -269,12 +274,14 @@ class OpenstackManager:
             LOG.debug('the id of flavor {} is: {}', flavor, flavor_id)
             return self.flavors_cached[flavor]
 
+    @wrap_exceptions
     def get_flavor(self, id_or_name):
         try:
             return self.client.nova.flavors.get(id_or_name)
         except Exception:
             return self.client.nova.flavors.find(name=id_or_name)
 
+    @wrap_exceptions
     def get_image(self, id_or_name):
         return self.client.glance.images.get(id_or_name)
 
@@ -291,6 +298,7 @@ class OpenstackManager:
             task_state=getattr(server, 'OS-EXT-STS:task_state') or '',
             host=getattr(server, 'OS-EXT-SRV-ATTR:host') or '')
 
+    @wrap_exceptions
     def create_ecs(self, name=None) -> model.ECS:
         if not name:
             name = utils.generate_name(
@@ -320,6 +328,7 @@ class OpenstackManager:
 
         return self.get_ecs(server.id)
 
+    @wrap_exceptions
     def get_ecs(self, ecs_id):
         try:
             server = self.client.nova.servers.get(ecs_id)
@@ -327,18 +336,23 @@ class OpenstackManager:
             raise exceptions.ECSNotFound(ecs_id)
         return self._parse_server_to_ecs(server)
 
+    @wrap_exceptions
     def stop_ecs(self, ecs):
         self.client.nova.servers.stop(ecs.id)
 
+    @wrap_exceptions
     def start_ecs(self, ecs):
         self.client.nova.servers.start(ecs.id)
 
+    @wrap_exceptions
     def reboot_ecs(self, ecs):
         self.client.nova.servers.reboot(ecs.id)
 
+    @wrap_exceptions
     def hard_reboot_ecs(self, ecs):
         self.client.nova.servers.reboot(ecs.id, reboot_type='HARD')
 
+    @wrap_exceptions
     def get_ecs_console_log(self, ecs: model.ECS):
         return self.client.nova.servers.get_console_output(ecs.id)
 
@@ -361,27 +375,8 @@ class OpenstackManager:
     def get_server_id(self, server):
         return getattr(server, 'id')
 
-    # def _wait_for_console_log(self, vm, interval=10):
-    #     def check_vm_console_log():
-    #         output = vm.get_console_output(length=10)
-    #         LOG.debug('console log: {}', output, vm=vm.id)
-    #         for key in CONF.boot.console_log_error_keys:
-    #             if key not in output:
-    #                 continue
-    #             LOG.error('found "{}" in conosole log', vm.id, key)
-    #             raise exceptions.BootFailed(vm=vm.id)
-
-    #         match_ok = sum(
-    #             key in output for key in CONF.boot.console_log_ok_keys
-    #         )
-    #         if match_ok == len(CONF.boot.console_log_ok_keys):
-    #             return True
-
-    #     retry.retry_untile_true(check_vm_console_log, interval=interval,
-    #                             timeout=600)
-
+    @wrap_exceptions
     def wait_for_vm_task_finished(self, vm, timeout=None, interval=5):
-
         def check_vm_status():
             vm.get()
             task_state = self.get_task_state(vm)
@@ -392,15 +387,18 @@ class OpenstackManager:
                                      interval=interval, timeout=timeout)
         return vm
 
+    @wrap_exceptions
     def get_ecs_interfaces(self, ecs: model.ECS) -> list:
         return [vif.port_id for vif in self.client.list_interface(ecs.id)]
 
+    @wrap_exceptions
     def get_ecs_ip_address(self, ecs: model.ECS):
         ip_list = []
         for vif in self.client.list_interface(ecs.id):
             ip_list.extend([ip['ip_address'] for ip in vif.fixed_ips])
         return ip_list
 
+    @wrap_exceptions
     def get_host_ip(self, hostname):
         hypervisors = self.client.nova.hypervisors.search(hostname)
         if not hypervisors:
@@ -412,6 +410,7 @@ class OpenstackManager:
         return model.Volume(vol.id, vol.size, name=vol.name or '',
                             status=vol.status or '')
 
+    @wrap_exceptions
     def get_volume(self, volume_id) -> model.Volume:
         try:
             volume = self.client.cinder.volumes.get(volume_id)
@@ -419,6 +418,7 @@ class OpenstackManager:
         except cinder_exc.NotFound:
             raise exceptions.VolumeNotFound(volume_id)
 
+    @wrap_exceptions
     def create_volume(self, size_gb=None, name=None, image=None,
                       snapshot=None, volume_type=None):
         name = name or utils.generate_name('vol')
@@ -429,11 +429,19 @@ class OpenstackManager:
                                         volume_type=volume_type)
         return self._parse_volume(vol)
 
+    @wrap_exceptions
     def delete_volume(self, volume: model.Volume):
         self.client.delete_volume(volume.id)
 
+    @wrap_exceptions
     def attach_volume(self, ecs: model.ECS, volume_id: str):
         self.client.attach_volume(ecs.id, volume_id)
 
+    @wrap_exceptions
     def detach_volume(self, ecs: model.ECS, volume_id):
         self.client.detach_volume(ecs.id, volume_id)
+
+    @wrap_exceptions
+    def get_ecs_blocks(self, ecs: model.ECS) -> list[str]:
+        """e.g. ['/dev/sda' '/dev/sdb']"""
+        return [vol.device for vol in self.client.get_ecs_volumes(ecs.id)]

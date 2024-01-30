@@ -94,8 +94,7 @@ class BaseManager(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def get_libvirt_guest(self, ecs: model.ECS) -> libvirt_guest.LibvirtGuest:
-        host_ip = self.get_host_ip(self.server.host)
-        return libvirt_guest.LibvirtGuest(ecs.id, host=host_ip)
+        pass
 
     @abc.abstractmethod
     def create_volume(self, size_gb=None, name=None, image=None,
@@ -108,6 +107,10 @@ class BaseManager(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def delete_volume(self, volume: model.Volume):
+        pass
+
+    @abc.abstractmethod
+    def get_ecs_blocks(self, ecs: model.ECS):
         pass
 
 

@@ -1,16 +1,15 @@
 import json
 import time
 import base64
-import time
 import contextlib
 import pathlib
 
 import libvirt
 import libvirt_qemu
+from retry import retry
 
 from skytest.common import log
 from skytest.common import utils
-from skytest.common import exceptions
 
 LOG = log.getLogger()
 
@@ -34,6 +33,7 @@ LIBVIRT_POWER_STATE = {
     VIR_DOMAIN_PMSUSPENDED: 'SUSPENDED',
 }
 
+
 class DomainNotFound(Exception):
     def __init__(self, name):
         super().__init__(f'Domain {name} not found.')
@@ -44,8 +44,8 @@ class LibvirtGuest(object):
     def __init__(self, domain, host=None):
         self.host = host or 'localhost'
         self.name_or_id = domain
-        self._domain = None
-        self._connect = None
+        self._domain: libvirt.virDomain = None
+        self._connect: libvirt.virConnect = None
 
     @property
     def connect(self):
@@ -56,7 +56,7 @@ class LibvirtGuest(object):
     def _lookup_domain(self):
         if self._domain:
             return
-        LOG.debug('look up domain {}', self.name_or_id)
+        LOG.debug('look up domain {}', self.name_or_id, ecs=self.name_or_id)
         lookup_funcs = [self.connect.lookupByName]
         if utils.is_uuid(self.name_or_id):
             lookup_funcs.insert(0, self.connect.lookupByUUIDString)
@@ -97,6 +97,7 @@ class LibvirtGuest(object):
         return json.dumps(
             {'execute': 'guest-exec-status', 'arguments': {'pid': pid}})
 
+    @retry(exceptions=libvirt.libvirtError, tries=60*6, delay=5)
     def guest_exec(self, cmd, wait_exists=True, timeout=60):
         exec_cmd = self._get_agent_exec_cmd(cmd)
         result = libvirt_qemu.qemuAgentCommand(self.domain, exec_cmd,
@@ -104,7 +105,8 @@ class LibvirtGuest(object):
         result_obj = json.loads(result)
         cmd_pid = result_obj.get('return', {}).get('pid')
         LOG.debug('RUN: {} => PID: {}', cmd, cmd_pid,
-                  vm=self.domain.UUIDString())
+                  vm=self.domain.UUIDString(),
+                  ecs=self.uuid)
 
         if not cmd_pid:
             raise RuntimeError('guest-exec pid is none')
@@ -119,7 +121,7 @@ class LibvirtGuest(object):
         result_obj = {}
         start_timeout = time.time()
         while True:
-            LOG.debug('waiting for {}', pid)
+            LOG.debug('waiting for {}', pid, ecs=self.uuid)
             result = libvirt_qemu.qemuAgentCommand(self.domain, cmd_obj,
                                                    timeout, 0)
             result_obj = json.loads(result)
@@ -138,16 +140,15 @@ class LibvirtGuest(object):
         if isinstance(err_decode, bytes):
             err_decode = err_decode.decode()
         LOG.debug('PID: {} => OUTPUT: {}', pid, out_decode,
-                  vm=self.domain.UUIDString())
+                  ecs=self.uuid)
         return out_decode or err_decode
 
     def rpm_i(self, rpm_file):
         if rpm_file:
-            self.guest_exec(['/usr/bin/rpm','-ivh', rpm_file])
+            self.guest_exec(['/usr/bin/rpm', '-ivh', rpm_file])
 
     def is_ip_exists(self, ipaddress):
-        result = self.ip_a()
-        return f'inet {ipaddress}/' in result
+        return f'inet {ipaddress}/' in self.ip_a()
 
     def hostname(self):
         return self.guest_exec(['/usr/bin/hostname'])
@@ -213,3 +214,14 @@ class LibvirtGuest(object):
 
     def ip_a(self):
         return self.guest_exec(['/sbin/ip', 'a'])
+
+    def lsblk(self):
+        return self.guest_exec(['lsblk', '--pairs', '--paths'])
+
+
+def _libvirt_error_handler(context, err):
+    # Just ignore instead of default outputting to stderr.
+    pass
+
+
+libvirt.registerErrorHandler(_libvirt_error_handler, None)
