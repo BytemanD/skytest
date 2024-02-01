@@ -1,14 +1,16 @@
+from concurrent import futures
 import re
-from retry import retry
+import time
 
 from easy2use.globals import cfg
-# from easy2use.common import retry
+from retry import retry
 
 from skytest.common import exceptions
 from skytest.common import log
-from skytest.managers import base
 from skytest.common import model
+from skytest.common import utils
 from skytest.common import libvirt_guest
+from skytest.managers import base
 
 CONF = cfg.CONF
 LOG = log.getLogger()
@@ -116,27 +118,29 @@ class EcsActionTestBase(object):
         except exceptions.VolumeNotFound:
             LOG.info("deleted volume {} ", volume.id, ecs=self.ecs.id)
             return
+        else:
+            if volume.is_error():
+                raise exceptions.VolumeIsError(volume.id)
+            raise exceptions.VolumeIsNotDeleted(volume.id)
 
-        if volume.is_error():
-            raise exceptions.VolumeIsError(volume.id)
-        raise exceptions.VolumeIsNotDeleted(volume.id)
+    @retry(exceptions=exceptions.VolumeIsNotAvailable,
+           tries=60, delay=1, backoff=2, max_delay=10)
+    def wait_volume_is_available(self, volume: model.Volume):
+        vol = self.manager.get_volume(volume.id)
+        LOG.info('volume {} status: {}', vol.id, vol.status,
+                 ecs=self.ecs.id)
+        if not vol.is_available():
+            raise exceptions.VolumeIsNotAvailable(volume.id)
+        return vol
 
-    # def wait_server_volume_attached(self, volume_id):
-    #     def check_volume():
-    #         vol = self.client.cinder.volumes.get(volume_id)
-    #         LOG.debug('volume {} status: {}', volume_id, vol.status,
-    #                   vm=self.ecs.id)
-    #         if vol.status == 'error':
-    #             raise exceptions.VolumeDetachFailed(volume=volume_id)
-    #         return vol.status == 'in-use'
-
-    #     easy_retry.retry_untile_true(check_volume, interval=5, timeout=600)
-    #     if check_with_qga:
-    #         # qga = guest.QGAExecutor()
-    #         # TODO: check with qga
-    #         pass
-    #         LOG.warning('TODO check with qga')
-    #     LOG.info('attached volume {}', volume_id, vm=vm.id)
+    @retry(exceptions=exceptions.VolumeIsNotInuse,
+           tries=60, delay=1, backoff=2, max_delay=10)
+    def wait_volume_is_inuse(self, volume: model.Volume):
+        vol = self.manager.get_volume(volume.id)
+        LOG.info('volume {} status: {}', vol.id, vol.status, ecs=self.ecs.id)
+        if not vol.is_inuse():
+            raise exceptions.VolumeIsNotInuse(volume.id)
+        return vol
 
     def get_libvirt_guest(self):
         ecs_host_ip = self.manager.get_host_ip(self.ecs.host)
@@ -183,7 +187,7 @@ class EcsCreateTest(EcsActionTestBase):
 
     def start(self):
         self.ecs = self.manager.create_ecs()
-        LOG.info('creating', ecs=self.ecs.id)
+        LOG.info('boot success', ecs=self.ecs.id)
         try:
             self.wait_for_ecs_created()
         except Exception as e:
@@ -191,8 +195,8 @@ class EcsCreateTest(EcsActionTestBase):
             raise exceptions.EcsTestFailed(
                 vm=self.ecs.id, action='create',
                 reason=f'{e}')
+        LOG.info('ecs status is {}', self.ecs.status, ecs=self.ecs.id)
         self.guest_must_have_all_ipaddress()
-        LOG.success('create success', ecs=self.ecs.id)
 
     def tear_down(self):
         self.manager.delete_ecs(self.ecs)
@@ -205,7 +209,7 @@ class EcsStopTest(EcsActionTestBase):
         if self.ecs.is_stopped():
             raise exceptions.SkipActionException('ecs is already stopped')
         self.manager.stop_ecs(self.ecs)
-        LOG.info('== stopping', ecs=self.ecs.id)
+        LOG.info('stopping', ecs=self.ecs.id)
         self.wait_for_ecs_task_finished()
         self.ecs = self.manager.get_ecs(self.ecs)
         LOG.debug('status is {}', self.ecs.status, ecs=self.ecs.id)
@@ -213,7 +217,7 @@ class EcsStopTest(EcsActionTestBase):
             raise exceptions.EcsTestFailed(
                 vm=self.ecs.id, action='stop',
                 reason=f'vm state is {self.ecs.status}')
-        LOG.success('== stop success', ecs=self.ecs.id)
+        LOG.info('stop success', ecs=self.ecs.id)
 
 
 class EcsStartTest(EcsActionTestBase):
@@ -222,7 +226,7 @@ class EcsStartTest(EcsActionTestBase):
         if self.ecs.is_active():
             raise exceptions.SkipActionException('ecs is already active')
         self.manager.start_ecs(self.ecs)
-        LOG.info('== starting', ecs=self.ecs.id)
+        LOG.info('starting', ecs=self.ecs.id)
         self.wait_for_ecs_task_finished()
         self.ecs = self.manager.get_ecs(self.ecs)
         LOG.debug('status is {}', self.ecs.status, ecs=self.ecs.id)
@@ -230,7 +234,7 @@ class EcsStartTest(EcsActionTestBase):
             raise exceptions.EcsTestFailed(
                 vm=self.ecs.id, action='start',
                 reason=f'vm state is {self.ecs.status}')
-        LOG.success('== start success', ecs=self.ecs.id)
+        LOG.info('start success', ecs=self.ecs.id)
 
 
 class EcsRebootTest(EcsActionTestBase):
@@ -240,22 +244,21 @@ class EcsRebootTest(EcsActionTestBase):
             raise exceptions.SkipActionException('ecs is not active')
 
         self.manager.reboot_ecs(self.ecs)
-        LOG.info('== rebooting', ecs=self.ecs.id)
+        LOG.info('rebooting', ecs=self.ecs.id)
         self.wait_for_ecs_task_finished()
         if not self.ecs.is_active():
             raise exceptions.EcsTestFailed(
                 vm=self.ecs.id, action='reboot',
                 reason=f'vm state is {self.ecs.status}')
-        LOG.info('== reboot success', ecs=self.ecs.id)
+        LOG.info('reboot success', ecs=self.ecs.id)
 
 
 class EcsHardRebootTest(EcsActionTestBase):
-
     def start(self):
         self.manager.hard_reboot_ecs(self.ecs)
-        LOG.info('== hard rebooting', ecs=self.ecs.id)
+        LOG.info('hard rebooting', ecs=self.ecs.id)
         self.wait_for_ecs_task_finished()
-        LOG.info('== hard reboot success', ecs=self.ecs.id)
+        LOG.info('hard reboot success', ecs=self.ecs.id)
 
 
 class EcsAttachInterfaceTest(EcsActionTestBase):
@@ -282,7 +285,7 @@ class EcsAttachInterfaceTest(EcsActionTestBase):
                     ecs=self.ecs.id, action='attach_interface',
                     reason=f'ecs does not have interface {vif}')
         self.guest_must_have_all_ipaddress()
-        LOG.success('test attach interface success', ecs=self.ecs.id)
+        LOG.info('test attach interface success', ecs=self.ecs.id)
 
     def tear_down(self):
         for vif in reversed(self.attached_vifs):
@@ -314,7 +317,7 @@ class EcsAttachInterfaceLoopTest(EcsActionTestBase):
                 LOG.info('detaching interface {} {}',
                          index + 1, port_id, vm=self.ecs.id)
                 self.ecs.interface_detach(port_id)
-        LOG.success('test attach volume loop success', vm=self.ecs.id)
+        LOG.info('test attach volume loop success', vm=self.ecs.id)
 
 
 class EcsAttachVolumeTest(EcsActionTestBase):
@@ -330,31 +333,29 @@ class EcsAttachVolumeTest(EcsActionTestBase):
         LOG.info('creating volumes', ecs=self.ecs.id)
         self.wait_volume_created(volume)
 
-        LOG.info('== attaching volume', ecs=self.ecs.id)
+        LOG.info('attaching volume', ecs=self.ecs.id)
         self.manager.attach_volume(self.ecs, volume.id)
         LOG.info('attaching volume {}', volume.id, ecs=self.ecs.id)
         self.wait_for_ecs_task_finished()
         volume = self.manager.get_volume(volume.id)
         LOG.info('volume {} status: {}', volume.id, volume.status,
                  ecs=self.ecs.id)
-        if not volume.is_in_use():
+        if not volume.is_inuse():
             raise exceptions.EcsTestFailed(
                 vm=self.ecs.id, action='attach_volume',
                 reason=f'volume {volume.id} not in use')
         self.attached_volumes.append(volume)
         self.guest_must_have_all_block()
-        LOG.success('== attach volumes success', ecs=self.ecs.id)
+        LOG.info('attach volumes success', ecs=self.ecs.id)
 
     def tear_down(self):
-        for volume in self.attached_volumes:
+        for i in range(self.attached_volumes):
+            volume = self.attached_volumes[i]
             self.manager.detach_volume(self.ecs, volume.id)
             LOG.info('detaching volume {}', volume.id, ecs=self.ecs.id)
             self.wait_for_ecs_task_finished()
-            volume = self.manager.get_volume(volume.id)
-            LOG.info('volume {} status: {}', volume.id, volume.status,
-                     ecs=self.ecs.id)
-            if volume.is_available():
-                LOG.info('detached volume {}', volume.id, ecs=self.ecs.id)
+            self.attached_volumes[i] = self.wait_volume_is_available(volume)
+
         for volume in self.volumes:
             self.manager.delete_volume(volume)
             LOG.info('deleting volume {}', volume.id, ecs=self.ecs.id)
@@ -368,33 +369,57 @@ class EcsAttachVolumeLoopTest(EcsActionTestBase):
         super().__init__(*args, **kwargs)
         self.created_volumes = []
 
-    def tear_up(self):
-        super().tear_up()
-        LOG.info('creating volumes', vm=self.ecs.id)
-        self.created_volumes = self.manager.create_volumes(
-            10, num=CONF.scenario_test.attach_volume_nums_each_time)
+    def create_volumes(self, size, name=None, num=1, workers=None, image=None,
+                       snapshot=None, volume_type=None):
+        LOG.debug('try to create {} volume(s), name={}, image={}, snapshot={}',
+                  num, name, image, snapshot, ecs=self.ecs.id)
+        self.created_volumes = []
+        if not name:
+            name = utils.generate_name('vol')
+
+        with futures.ThreadPoolExecutor(max_workers=workers) as executor:
+            tasks = [executor.submit(self.manager.create_volume,
+                                     size_gb=size, name=f'{name}-{index}',
+                                     image=image, snapshot=snapshot,
+                                     volume_type=volume_type)
+                     for index in range(1, num + 1)]
+            LOG.info('creating {} volume(s) ...', num, ecs=self.ecs.id)
+            for task in futures.as_completed(tasks):
+                vol = task.result()
+                if not vol:
+                    continue
+                self.created_volumes.append(vol)
+
+        for volume in self.created_volumes:
+            self.wait_volume_created(volume)
+        return self.created_volumes
 
     def start(self):
-        for i in range(CONF.scenario_test.attach_volume_loop_times):
-            for (j, volume) in enumerate(self.created_volumes):
-                LOG.info('test attach volume {}-{}', i+1, j+1, vm=self.ecs.id)
-                self.manager.attach_volume(self.ecs, volume.id, wait=True)
-                self.manager.wait_for_vm_task_finished(self.ecs)
+        self.create_volumes(
+            10, num=CONF.scenario_test.attach_volume_nums_each_time)
 
-            for volume in self.created_volumes:
-                self.manager.detach_volume(self.ecs, volume.id, wait=True)
-                self.manager.wait_for_vm_task_finished(self.ecs)
+        for (i, volume) in enumerate(self.created_volumes):
+            LOG.info('attach volume {}', i + 1, ecs=self.ecs.id)
+            self.manager.attach_volume(self.ecs, volume.id)
+            self.wait_for_ecs_task_finished()
+            self.created_volumes[i] = self.wait_volume_is_inuse(volume)
+        self.guest_must_have_all_block()
 
-    def varify(self):
-        # TODO
-        # varify vm volume attachments
-        self.assert_vm_state_is_active()
-        LOG.success('test attach volume loop success', vm=self.ecs.id)
+        LOG.debug('sleep {} seconds before detach volume',
+                  CONF.scenario_test.device_toggle_min_interval,
+                  ecs=self.ecs.id)
+        time.sleep(CONF.scenario_test.device_toggle_min_interval)
+
+        for (i, volume) in enumerate(self.created_volumes):
+            self.manager.detach_volume(self.ecs, volume.id)
+            self.wait_for_ecs_task_finished()
+            self.created_volumes[i] = self.wait_volume_is_available(volume)
+
+        self.guest_must_have_all_block()
 
     def tear_down(self):
-        LOG.info('clean up {} volumes', len(self.created_volumes),
-                 vm=self.ecs.id)
-        self.manager.delete_volumes(self.created_volumes)
+        for volume in self.created_volumes:
+            self.manager.delete_volume(volume)
         super().tear_down()
 
 

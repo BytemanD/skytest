@@ -122,7 +122,7 @@ class InvalidImage(base_exc.BaseException):
 
 
 class EcsTestFailed(base_exc.BaseException):
-    _msg = 'vm {vm} {action} falied, {reason}.'
+    _msg = 'ecs {ecs} {action} falied, {reason}.'
 
 
 class GuestDomainIpaddressNotExists(base_exc.BaseException):
@@ -169,12 +169,20 @@ class VolumeIsNotAvailable(base_exc.BaseException):
     _msg = 'Volume {} is not available'
 
 
+class VolumeIsNotInuse(base_exc.BaseException):
+    _msg = 'Volume {} is not inuse'
+
+
 class VolumeIsError(base_exc.BaseException):
     _msg = 'Volume {} is error'
 
 
 class VolumeIsNotDeleted(base_exc.BaseException):
     _msg = 'Volume {} is still not deleted'
+
+
+class VolumeIsNotAvailable(base_exc.BaseException):
+    _msg = 'Volume {} is still not available'
 
 
 class VolumeNotFound(base_exc.BaseException):

@@ -102,6 +102,8 @@ class ECSScenarioTest(object):
 
         jobs: list[ecs_actions.EcsActionTestBase] = []
         for action in self.actions:
+            LOG.info('== Test {}', action,
+                     ecs='{:36}'.format(self.ecs and self.ecs.id or '-'))
             test_cls = ecs_actions.VM_TEST_SCENARIOS.get(action)
             job: ecs_actions.EcsActionTestBase = test_cls(self.ecs,
                                                           self.manager)
@@ -111,6 +113,7 @@ class ECSScenarioTest(object):
                 LOG.warning('{}', e, ecs=(self.ecs and self.ecs.id))
             else:
                 self.ecs = job.ecs
+                LOG.success('== Test {} is ok', action, ecs=self.ecs.id)
                 jobs.append(job)
 
         LOG.info('==== Tear Down ECS action test ====')

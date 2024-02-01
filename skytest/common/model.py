@@ -38,7 +38,7 @@ class Volume:
     def is_error(self):
         return self.status.upper() == 'ERROR'
 
-    def is_in_use(self):
+    def is_inuse(self):
         return self.status.upper().replace('-', '_') == 'IN_USE'
 
     def is_creating(self):

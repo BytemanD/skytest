@@ -55,6 +55,7 @@ scenario_test_opts = [
 
     cfg.IntOption('attach_volume_nums_each_time', default=1),
     cfg.IntOption('attach_volume_loop_times', default=2),
+    cfg.IntOption('device_toggle_min_interval', default=4),
 
     cfg.BooleanOption('enable_varify_guest_ip_address', default=False),
     cfg.BooleanOption('enable_varify_guest_block', default=False),

@@ -143,7 +143,7 @@ class OpenstackManager:
         bar.close()
 
     def create_volumes(self, size, name=None, num=1, workers=None, image=None,
-                       snapshot=None, volume_type=None, pbr_driver=None):
+                       snapshot=None, volume_type=None):
         name = name or utils.generate_name('vol')
         workers = workers or num
         LOG.info('Try to create {} volume(s), name: {}, image: {}, '
@@ -420,7 +420,7 @@ class OpenstackManager:
 
     @wrap_exceptions
     def create_volume(self, size_gb=None, name=None, image=None,
-                      snapshot=None, volume_type=None):
+                      snapshot=None, volume_type=None) -> model.Volume:
         name = name or utils.generate_name('vol')
         LOG.debug('creating volume {}, image={}, snapshot={}',
                   name, image, snapshot)
