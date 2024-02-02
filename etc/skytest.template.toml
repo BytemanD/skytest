@@ -3,11 +3,11 @@ debug = false
 
 [openstack]
 ##### 环境变量文件
-env =
+env = ''
 ##### 镜像ID
-image_id = 
+image_id = ''
 ##### 规格ID
-flavor = 
+flavor = ''
 
 ##### 创建虚拟机使用的网络ID列表
 # net_ids = 
@@ -38,9 +38,8 @@ flavor =
 
 # scenarios =
 
-##### 每次挂载网卡的个数和循环次数
+##### 每次挂载网卡的个数
 # attach_interface_nums_each_time = 1
-# attach_interface_loop_times = 2
 
 ##### 每次挂载卷的个数循环次数
 # attach_volume_nums_each_time = 1
@@ -60,11 +59,8 @@ flavor =
 ##### 创建虚拟机后，是否通过检查conole log 等待虚拟机完全启动
 # check_console_log = False
 
-[reboot]
-times = 2
-interval = 5
 
 [hard_reboot]
-times = 3
-interval = 10
+# times = 3
+# interval = 10
 

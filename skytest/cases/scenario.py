@@ -1,17 +1,17 @@
 import random
 
-from easy2use.globals import cfg
-
+from skytest.common import conf
 from skytest.common import exceptions
 from skytest.common import utils
 from skytest.common import log
+
 # from skytest.common import libvirt_guest
 from skytest.common import model
 from skytest.managers import base
 
 from . import ecs_actions
 
-CONF = cfg.CONF
+CONF = conf.CONF
 LOG = log.getLogger()
 
 VM_TEST_SCENARIOS = ecs_actions.VM_TEST_SCENARIOS

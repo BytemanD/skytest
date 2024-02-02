@@ -28,6 +28,7 @@ def action_test(verbose, log_file, conf_file):
 
     try:
         conf.load_configs(conf_file=conf_file)
+        # import pdb; pdb.set_trace()
     except exceptions.ConfileNotExists as e:
         LOG.error('load config failed, {}', e)
         sys.exit(1)

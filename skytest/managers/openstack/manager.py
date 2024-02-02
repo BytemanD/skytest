@@ -11,15 +11,15 @@ from cinderclient import exceptions as cinder_exc
 
 from easy2use.common import retry as easy_retry
 from easy2use.component import pbr
-from easy2use.globals import cfg
 
 from skytest.common import exceptions
+from skytest.common import conf
 from skytest.common import utils
 from skytest.common import log
 from skytest.common import model
 from . import client
 
-CONF = cfg.CONF
+CONF = conf.CONF
 LOG = log.getLogger()
 
 
@@ -174,7 +174,6 @@ class OpenstackManager:
 
     @wrap_exceptions
     def attach_net(self, ecs: model.ECS, net_id) -> str:
-        # import pdb; pdb.set_trace()
         vif = self.client.nova.servers.interface_attach(ecs.id, None, net_id,
                                                         None)
         return vif.port_id

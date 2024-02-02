@@ -1,15 +1,14 @@
 import abc
 
-from easy2use.globals import cfg
-
 from skytest.common import exceptions
+from skytest.common import conf
 from skytest.common import libvirt_guest
 from skytest.common import log
 from skytest.common import model
 
 from .openstack.manager import OpenstackManager
 
-CONF = cfg.CONF
+CONF = conf.CONF
 LOG = log.getLogger()
 
 
