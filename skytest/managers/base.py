@@ -113,6 +113,10 @@ class BaseManager(metaclass=abc.ABCMeta):
     def get_ecs_blocks(self, ecs: model.ECS):
         pass
 
+    @abc.abstractmethod
+    def live_migrate_ecs(self, ecs: model.ECS):
+        pass
+
 
 def get_manager():
     if CONF.manager == 'openstack':

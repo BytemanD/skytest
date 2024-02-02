@@ -31,13 +31,6 @@ class EcsActionTestBase(object):
         self.tear_up()
         self.start()
 
-    # def assert_vm_state_is_active(self):
-    #     self.ecs = self.manager.get_ecs(self.ecs.id)
-    #     if self.ecs.status != 'ACTIVE':
-    #         raise exceptions.EcsTestFailed(vm=self.ecs.id,
-    #                                       reason
-    #                                       reason=f'vm state is {vm_state}')
-
     @retry(exceptions=exceptions.EcsIsNotCreated,
            tries=CONF.boot.timeout/5, delay=5)
     def wait_for_ecs_created(self):
@@ -70,10 +63,12 @@ class EcsActionTestBase(object):
 
     @retry(exceptions=exceptions.EcsHasTask,
            tries=30, delay=1, backoff=2, max_delay=10)
-    def wait_for_ecs_task_finished(self):
+    def wait_for_ecs_task_finished(self, show_progress=False):
         self.ecs = self.manager.get_ecs(self.ecs)
-        LOG.debug('status={}, task state={}',
-                  self.ecs.status, self.ecs.task_state, ecs=self.ecs.id)
+        LOG.debug('status={}, task state={}{}', self.ecs.status,
+                  self.ecs.task_state,
+                  show_progress and f' progress={self.ecs.progress}' or '',
+                  ecs=self.ecs.id)
         if self.ecs.has_task():
             raise exceptions.EcsHasTask(self.ecs.id)
 
@@ -193,7 +188,7 @@ class EcsCreateTest(EcsActionTestBase):
         except Exception as e:
             LOG.exception(e)
             raise exceptions.EcsTestFailed(
-                vm=self.ecs.id, action='create',
+                ecs=self.ecs.id, action='create',
                 reason=f'{e}')
         LOG.info('ecs status is {}', self.ecs.status, ecs=self.ecs.id)
         self.guest_must_have_all_ipaddress()
@@ -215,7 +210,7 @@ class EcsStopTest(EcsActionTestBase):
         LOG.debug('status is {}', self.ecs.status, ecs=self.ecs.id)
         if not self.ecs.is_stopped():
             raise exceptions.EcsTestFailed(
-                vm=self.ecs.id, action='stop',
+                ecs=self.ecs.id, action='stop',
                 reason=f'vm state is {self.ecs.status}')
         LOG.info('stop success', ecs=self.ecs.id)
 
@@ -232,7 +227,7 @@ class EcsStartTest(EcsActionTestBase):
         LOG.debug('status is {}', self.ecs.status, ecs=self.ecs.id)
         if not self.ecs.is_active():
             raise exceptions.EcsTestFailed(
-                vm=self.ecs.id, action='start',
+                ecs=self.ecs.id, action='start',
                 reason=f'vm state is {self.ecs.status}')
         LOG.info('start success', ecs=self.ecs.id)
 
@@ -248,7 +243,7 @@ class EcsRebootTest(EcsActionTestBase):
         self.wait_for_ecs_task_finished()
         if not self.ecs.is_active():
             raise exceptions.EcsTestFailed(
-                vm=self.ecs.id, action='reboot',
+                ecs=self.ecs.id, action='reboot',
                 reason=f'vm state is {self.ecs.status}')
         LOG.info('reboot success', ecs=self.ecs.id)
 
@@ -310,7 +305,7 @@ class EcsAttachInterfaceLoopTest(EcsActionTestBase):
             for port_id in attached_ports:
                 if port_id not in vifs:
                     raise exceptions.EcsTestFailed(
-                        vm=self.ecs.id, action='attach_interface',
+                        ecs=self.ecs.id, action='attach_interface',
                         reason=f'port {port_id} not in vm interfaces {vifs}')
 
             for port_id in attached_ports:
@@ -342,7 +337,7 @@ class EcsAttachVolumeTest(EcsActionTestBase):
                  ecs=self.ecs.id)
         if not volume.is_inuse():
             raise exceptions.EcsTestFailed(
-                vm=self.ecs.id, action='attach_volume',
+                ecs=self.ecs.id, action='attach_volume',
                 reason=f'volume {volume.id} not in use')
         self.attached_volumes.append(volume)
         self.guest_must_have_all_block()
@@ -409,7 +404,6 @@ class EcsAttachVolumeLoopTest(EcsActionTestBase):
                   CONF.scenario_test.device_toggle_min_interval,
                   ecs=self.ecs.id)
         time.sleep(CONF.scenario_test.device_toggle_min_interval)
-
         for (i, volume) in enumerate(self.created_volumes):
             self.manager.detach_volume(self.ecs, volume.id)
             self.wait_for_ecs_task_finished()
@@ -423,6 +417,26 @@ class EcsAttachVolumeLoopTest(EcsActionTestBase):
         super().tear_down()
 
 
+class EcsLiveMigrateTest(EcsActionTestBase):
+
+    def start(self):
+        src_host = self.ecs.host
+        LOG.info('source host is {}', src_host, ecs=self.ecs.id)
+        self.manager.live_migrate_ecs(self.ecs)
+        LOG.info('live migrating ...', ecs=self.ecs.id)
+        self.wait_for_ecs_task_finished(show_progress=True)
+        if not self.ecs.is_active():
+            raise exceptions.EcsTestFailed(
+                ecs=self.ecs.id, action='live_migrate',
+                reason=f'ecs status is {self.ecs.status}')
+        LOG.info('dest host is {}', self.ecs.host, ecs=self.ecs.id)
+        if self.ecs.host == src_host:
+            raise exceptions.EcsTestFailed(
+                ecs=self.ecs.id, action='live_migrate',
+                reason=f'ecs host is still {self.ecs.host}')
+        LOG.info('host is {}', self.ecs.host, ecs=self.ecs.id)
+
+
 VM_TEST_SCENARIOS = {
     'create': EcsCreateTest,
     'stop': EcsStopTest,
@@ -433,4 +447,5 @@ VM_TEST_SCENARIOS = {
     'attach_interface_loop': EcsAttachInterfaceLoopTest,
     'attach_volume': EcsAttachVolumeTest,
     'attach_volume_loop': EcsAttachVolumeLoopTest,
+    'live_migrate': EcsLiveMigrateTest,
 }

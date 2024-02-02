@@ -296,7 +296,8 @@ class OpenstackManager:
             id=server.id, name=server.name,
             status=getattr(server, 'OS-EXT-STS:vm_state') or '',
             task_state=getattr(server, 'OS-EXT-STS:task_state') or '',
-            host=getattr(server, 'OS-EXT-SRV-ATTR:host') or '')
+            host=getattr(server, 'OS-EXT-SRV-ATTR:host') or '',
+            progress=getattr(server, 'progress', None),)
 
     @wrap_exceptions
     def create_ecs(self, name=None) -> model.ECS:
@@ -352,6 +353,10 @@ class OpenstackManager:
     def hard_reboot_ecs(self, ecs):
         self.client.nova.servers.reboot(ecs.id, reboot_type='HARD')
 
+    def live_migrate_ecs(self, ecs):
+        self.client.nova.servers.live_migrate(ecs.id, host=None,
+                                              block_migration=True)
+
     @wrap_exceptions
     def get_ecs_console_log(self, ecs: model.ECS):
         return self.client.nova.servers.get_console_output(ecs.id)
@@ -359,6 +364,8 @@ class OpenstackManager:
     def report_ecs_actions(self, ecs: model.ECS):
         pt = prettytable.PrettyTable(['Action', 'Event', 'StartTime',
                                       'EndTime', 'Host', 'Result'])
+        pt.align['Action'] = 'l'
+        pt.align['Event'] = 'l'
         vm_actions = self.client.get_server_events(ecs.id)
         vm_actions = sorted(vm_actions, key=lambda x: x[1][0]['start_time'])
         for action_name, events in vm_actions:

@@ -134,7 +134,7 @@ class ECSScenarioTest(object):
             raise e
         except Exception as e:
             self._cleanup()
-            raise exceptions.EcsTestFailed(vm=self.ecs and self.ecs.id,
+            raise exceptions.EcsTestFailed(ecs=self.ecs and self.ecs.id,
                                            action='test', reason=e)
         else:
             LOG.success('==== test success ====', ecs=self.ecs.id)

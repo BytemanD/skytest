@@ -8,6 +8,7 @@ class ECS:
     status: str = ''
     task_state: str = ''
     host: str = ''
+    progress: int = None
 
     def is_active(self):
         return self.status.upper() == 'ACTIVE'
