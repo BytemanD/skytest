@@ -109,12 +109,19 @@ class BaseManager(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def get_ecs_volumes(self, ecs: model.ECS) -> list[model.VolumeAttachment]:
+        pass
+
+    @abc.abstractmethod
     def get_ecs_blocks(self, ecs: model.ECS):
         pass
 
     @abc.abstractmethod
     def live_migrate_ecs(self, ecs: model.ECS):
         pass
+
+    def extend_volume(self, volume: model.Volume, new_size):
+        self.client.extend_volume(volume.id, new_size)
 
 
 def get_manager():

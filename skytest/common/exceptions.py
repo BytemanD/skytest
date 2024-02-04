@@ -197,5 +197,9 @@ class EcsDoseNotHaveBlock(base_exc.BaseException):
     _msg = 'ecs {} does not block {}.'
 
 
+class GuestBlockSizeNotExtend(base_exc.BaseException):
+    _msg = 'Block {} is {size} not {new_size}'
+
+
 class EcsCloudAPIError(base_exc.BaseException):
     _msg = 'cloud api error: {}.'

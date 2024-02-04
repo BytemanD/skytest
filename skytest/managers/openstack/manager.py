@@ -366,9 +366,10 @@ class OpenstackManager:
         pt.align['Action'] = 'l'
         pt.align['Event'] = 'l'
         vm_actions = self.client.get_server_events(ecs.id)
-        vm_actions = sorted(vm_actions, key=lambda x: x[1][0]['start_time'])
+
+        # vm_actions = sorted(vm_actions, key=lambda x: x[1][0]['start_time'])
         for action_name, events in vm_actions:
-            for i, event in enumerate(events):
+            for i, event in enumerate(events or []):
                 pt.add_row([action_name if i == 0 else "",
                             event['event'], event['start_time'],
                             event['finish_time'], event.get('host'),
@@ -451,3 +452,14 @@ class OpenstackManager:
     def get_ecs_blocks(self, ecs: model.ECS) -> list[str]:
         """e.g. ['/dev/sda' '/dev/sdb']"""
         return [vol.device for vol in self.client.get_ecs_volumes(ecs.id)]
+
+    def _parse_volume_attachment(self, attached):
+        return model.VolumeAttachment(attached.id, volumeId=attached.volumeId,
+                                      device=attached.device)
+
+    def get_ecs_volumes(self, ecs: model.ECS) -> list[model.VolumeAttachment]:
+        return [self._parse_volume_attachment(vol)
+                for vol in self.client.get_ecs_volumes(ecs.id)]
+
+    def extend_volume(self, volume: model.Volume, new_size):
+        self.client.extend_volume(volume.id, new_size)

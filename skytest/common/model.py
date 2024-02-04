@@ -47,3 +47,10 @@ class Volume:
 
     def is_available(self):
         return self.status.upper() == 'AVAILABLE'
+
+
+@dataclass
+class VolumeAttachment:
+    id: str
+    volumeId: str = ''
+    device: str = ''

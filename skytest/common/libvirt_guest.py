@@ -216,7 +216,8 @@ class LibvirtGuest(object):
         return self.guest_exec(['/sbin/ip', 'a'])
 
     def lsblk(self):
-        return self.guest_exec(['lsblk', '--pairs', '--paths'])
+        return self.guest_exec(['lsblk', '--pairs', '--paths',
+                                '-o', 'NAME,SIZE,TYPE'])
 
 
 def _libvirt_error_handler(context, err):

@@ -144,6 +144,9 @@ class OpenstackClient(object):
     def get_ecs_volumes(self, vm_id) -> list:
         return self.nova.volumes.get_server_volumes(vm_id)
 
+    def extend_volume(self, volume_id, new_size):
+        return self.cinder.volumes.extend(volume_id, new_size)
+
 
 def factory():
     return OpenstackClient.create_instance()
