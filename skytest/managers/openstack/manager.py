@@ -352,9 +352,14 @@ class OpenstackManager:
     def hard_reboot_ecs(self, ecs):
         self.client.nova.servers.reboot(ecs.id, reboot_type='HARD')
 
+    @wrap_exceptions
     def live_migrate_ecs(self, ecs):
         self.client.nova.servers.live_migrate(ecs.id, host=None,
                                               block_migration=True)
+
+    @wrap_exceptions
+    def migrate_ecs(self, ecs: model.ECS):
+        self.client.nova.servers.migrate(ecs.id, host=None)
 
     @wrap_exceptions
     def get_ecs_console_log(self, ecs: model.ECS):

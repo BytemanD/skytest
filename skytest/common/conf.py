@@ -59,16 +59,15 @@ class ScenarioTestConf(cfg2.OptionGroup):
                                                default=False)
     enable_guest_connection = cfg2.BoolOption('enable_guest_connection',
                                               default=False)
-
-
-class BootConf(cfg2.OptionGroup):
-    timeout = cfg2.IntOption('timeout', default=60 * 30)
-    check_console_log = cfg2.BoolOption('check_console_log', default=False)
+    # console log options
+    enable_varify_console_log = cfg2.BoolOption('enable_varify_console_log',
+                                                default=False)
     console_log_timeout = cfg2.IntOption('console_log_timeout', default=600)
     console_log_ok_keys = cfg2.ListOption(
         'console_log_ok_keys', default=[' login:'])
     console_log_error_keys = cfg2.ListOption(
         'console_log_error_keys', default=[])
+    boot_timeout = cfg2.IntOption('timeout', default=60 * 30)
 
 
 class RebootConf(cfg2.OptionGroup):
@@ -88,7 +87,6 @@ class AppConf(cfg2.TomlConfig):
 
     openstack = OpenstackConf()
     scenario_test = ScenarioTestConf()
-    boot = BootConf()
     reboot = RebootConf()
     hard_reboot = HardRebootConf()
 

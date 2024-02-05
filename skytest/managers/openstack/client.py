@@ -147,6 +147,9 @@ class OpenstackClient(object):
     def extend_volume(self, volume_id, new_size):
         return self.cinder.volumes.extend(volume_id, new_size)
 
+    def get_console_log(self, vm_id, length=10):
+        return self.nova.servers.get_console_log(vm_id, length=length)
+
 
 def factory():
     return OpenstackClient.create_instance()

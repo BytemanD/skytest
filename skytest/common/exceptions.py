@@ -203,3 +203,11 @@ class GuestBlockSizeNotExtend(base_exc.BaseException):
 
 class EcsCloudAPIError(base_exc.BaseException):
     _msg = 'cloud api error: {}.'
+
+
+class EcsNotMatchOKConsoleLog(base_exc.BaseException):
+    _msg = '{} not matched ok console log'
+
+
+class EcsMatchErrorConsoleLog(base_exc.BaseException):
+    _msg = '{} matched error error console log'

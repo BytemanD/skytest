@@ -35,7 +35,7 @@ class EcsActionTestBase(object):
         self.start()
 
     @retry(exceptions=exceptions.EcsIsNotCreated,
-           tries=CONF.boot.timeout/5, delay=5)
+           tries=CONF.scenario_test.boot_timeout/5, delay=5)
     def wait_for_ecs_created(self):
         if not self.ecs:
             raise Exception(f'{self.__class__}.ecs is None')
@@ -74,23 +74,6 @@ class EcsActionTestBase(object):
                   ecs=self.ecs.id)
         if self.ecs.has_task():
             raise exceptions.EcsHasTask(self.ecs.id)
-
-    def wait_for_ecs_console_log(self, timeout=None, interval=5):
-        def check_vm_console_log():
-            output = self.manager.get_ecs_console_log(self.ecs)
-            LOG.debug('console log: {}', output, ecs=self.ecs.id)
-            for key in CONF.boot.console_log_error_keys:
-                if key not in output:
-                    continue
-                LOG.error('found "{}" in conosole log', key, ecs=self.ecs.id)
-                raise exceptions.BootFailed(vm=self.ecs.id)
-
-            match_ok = sum(
-                key in output for key in CONF.boot.console_log_ok_keys)
-            return match_ok == len(CONF.boot.console_log_ok_keys)
-
-        retry.retry_untile_true(check_vm_console_log,
-                                interval=interval, timeout=timeout)
 
     @retry(exceptions=exceptions.VolumeIsNotAvailable,
            tries=60, delay=1, backoff=2, max_delay=10)
@@ -233,8 +216,8 @@ class EcsActionTestBase(object):
     def guest_block_size_must_be(self, name, size):
         if not CONF.scenario_test.enable_guest_qga_command:
             return
-        blocks = [blk for blk in self.guest_find_all_blocks() \
-            if blk['name'] == name]
+        blocks = [blk for blk in self.guest_find_all_blocks()
+                  if blk['name'] == name]
         if not blocks:
             raise exceptions.EcsDoseNotHaveBlock(self.ecs.id, name)
         if not blocks[0].get('size') == size:
@@ -242,3 +225,21 @@ class EcsActionTestBase(object):
                                                      new_size=size)
         LOG.info('block {} size is {}', name, blocks[0].get('size'),
                  ecs=self.ecs.id)
+
+    @retry(exceptions=exceptions.EcsNotMatchOKConsoleLog,
+           tries=CONF.scenario_test.console_log_timeout,
+           delay=1, backoff=2, max_delay=5)
+    def ecs_must_has_ok_console_log(self):
+        if not CONF.scenario_test.enable_varify_console_log:
+            return
+        output = self.manager.get_ecs_console_log(self.ecs)
+        LOG.debug('console log:\n{}', output, ecs=self.ecs.id)
+        for key in CONF.scenario_test.console_log_ok_keys:
+            if key in output:
+                LOG.info('found {} in console.log', key, esc=self.ecs.id)
+                return
+        for key in CONF.scenario_test.console_log_error_keys:
+            if key in output:
+                LOG.error('found {} in console.log', key, esc=self.ecs.id)
+                raise exceptions.EcsMatchErrorConsoleLog(self.ecs.id)
+        raise exceptions.EcsNotMatchOKConsoleLog(self.ecs.id)

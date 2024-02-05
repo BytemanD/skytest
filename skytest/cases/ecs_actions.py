@@ -18,6 +18,7 @@ class EcsCreateTest(base.EcsActionTestBase):
         LOG.info('boot success', ecs=self.ecs.id)
         try:
             self.wait_for_ecs_created()
+            self.ecs_must_has_ok_console_log()
         except Exception as e:
             LOG.exception(e)
             raise exceptions.EcsTestFailed(
@@ -225,7 +226,25 @@ class EcsLiveMigrateTest(base.EcsActionTestBase):
             raise exceptions.EcsTestFailed(
                 ecs=self.ecs.id, action='live_migrate',
                 reason=f'ecs status is {self.ecs.status}')
-        LOG.info('dest host is {}', self.ecs.host, ecs=self.ecs.id)
+        if self.ecs.host == src_host:
+            raise exceptions.EcsTestFailed(
+                ecs=self.ecs.id, action='live_migrate',
+                reason=f'ecs host is still {self.ecs.host}')
+        LOG.info('host is {}', self.ecs.host, ecs=self.ecs.id)
+
+
+class EcsMigrateTest(base.EcsActionTestBase):
+
+    def start(self):
+        src_host = self.ecs.host
+        LOG.info('source host is {}', src_host, ecs=self.ecs.id)
+        self.manager.migrate_ecs(self.ecs)
+        LOG.info('migrating ...', ecs=self.ecs.id)
+        self.wait_for_ecs_task_finished(show_progress=True)
+        if not self.ecs.is_active():
+            raise exceptions.EcsTestFailed(
+                ecs=self.ecs.id, action='live_migrate',
+                reason=f'ecs status is {self.ecs.status}')
         if self.ecs.host == src_host:
             raise exceptions.EcsTestFailed(
                 ecs=self.ecs.id, action='live_migrate',
@@ -272,4 +291,5 @@ VM_TEST_SCENARIOS = {
     'attach_volume_loop': EcsAttachVolumeLoopTest,
     'extend_volume': EcsExtendVolumeTest,
     'live_migrate': EcsLiveMigrateTest,
+    'migrate': EcsMigrateTest,
 }

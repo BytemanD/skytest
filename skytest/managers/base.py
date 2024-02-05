@@ -120,6 +120,10 @@ class BaseManager(metaclass=abc.ABCMeta):
     def live_migrate_ecs(self, ecs: model.ECS):
         pass
 
+    @abc.abstractmethod
+    def migrate_ecs(self, ecs: model.ECS):
+        pass
+
     def extend_volume(self, volume: model.Volume, new_size):
         self.client.extend_volume(volume.id, new_size)
 
