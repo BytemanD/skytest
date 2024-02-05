@@ -359,11 +359,12 @@ class OpenstackManager:
 
     @wrap_exceptions
     def migrate_ecs(self, ecs: model.ECS):
-        self.client.nova.servers.migrate(ecs.id, host=None)
+        self.client.nova.servers.migrate(ecs.id)
 
     @wrap_exceptions
-    def get_ecs_console_log(self, ecs: model.ECS):
-        return self.client.nova.servers.get_console_output(ecs.id)
+    def get_ecs_console_log(self, ecs: model.ECS, length=None):
+        return self.client.nova.servers.get_console_output(ecs.id,
+                                                           length=length)
 
     def report_ecs_actions(self, ecs: model.ECS):
         pt = prettytable.PrettyTable(['Action', 'Event', 'StartTime',

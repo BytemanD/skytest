@@ -23,7 +23,7 @@ flavor = ''
 ##### 卷大小
 # volume_size = 50
 
-[scenario_test]
+[ecs_test]
 ##### 总的任务数和并发任务数
 # total = 1
 # worker = 1
@@ -56,13 +56,5 @@ flavor = ''
 
 ##### 跨设备热插拔的最少间隔
 # device_toggle_min_interval = 4
-
-[boot]
-##### 创建虚拟机后，是否通过检查conole log 等待虚拟机完全启动
-# check_console_log = False
-
-
-[hard_reboot]
-# times = 3
-# interval = 10
-
+##### 允许检查 ECS console log
+# enable_varify_console_log = false

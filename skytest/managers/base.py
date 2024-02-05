@@ -43,7 +43,7 @@ class BaseManager(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def get_ecs_console_log(self, ecs: model.ECS) -> str:
+    def get_ecs_console_log(self, ecs: model.ECS, length=None) -> str:
         pass
 
     @abc.abstractmethod
@@ -124,8 +124,21 @@ class BaseManager(metaclass=abc.ABCMeta):
     def migrate_ecs(self, ecs: model.ECS):
         pass
 
+    @abc.abstractmethod
     def extend_volume(self, volume: model.Volume, new_size):
-        self.client.extend_volume(volume.id, new_size)
+        pass
+
+    @abc.abstractmethod
+    def get_flavor(self, id_or_name):
+        pass
+
+    @abc.abstractmethod
+    def get_image(self, id_or_name):
+        pass
+
+    @abc.abstractmethod
+    def get_available_services(host=None, zone=None, binary=None):
+        pass
 
 
 def get_manager():

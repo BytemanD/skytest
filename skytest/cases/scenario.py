@@ -7,8 +7,9 @@ from skytest.common import log
 
 # from skytest.common import libvirt_guest
 from skytest.common import model
-from skytest.managers import base
+from skytest.managers import base as base_manager
 
+from . import base
 from . import ecs_actions
 
 CONF = conf.CONF
@@ -25,9 +26,9 @@ class ECSScenarioTest(object):
         self.ecs: model.ECS = None
 
     @property
-    def manager(self) -> base.BaseManager:
+    def manager(self) -> base_manager.BaseManager:
         if not self._manager:
-            self._manager = base.get_manager()
+            self._manager = base_manager.get_manager()
         return self._manager
 
     def _check_flavor(self):
@@ -67,7 +68,7 @@ class ECSScenarioTest(object):
                 raise exceptions.NotAvailableServices(
                     reason=f'no available compute service for az "{az}"')
         elif len(services) == 1:
-            if 'migrate' in CONF.scenario_test.scenarios:
+            if 'migrate' in CONF.ecs_test.scenarios:
                 raise exceptions.NotAvailableServices(
                     reason='migrate test require available services >= 2')
         else:
@@ -78,7 +79,7 @@ class ECSScenarioTest(object):
 
         if not self._manager:
             utils.load_env(CONF.openstack.env)
-            self._manager = base.get_manager()
+            self._manager = base_manager.get_manager()
 
         self._check_flavor()
         self._check_image()
@@ -94,26 +95,26 @@ class ECSScenarioTest(object):
         ]
         LOG.info('test actions: {}', ' -> '.join(action_count))
 
-        if CONF.scenario_test.ecs_id and 'create' not in self.actions[:1]:
-            LOG.warning('test with ecs {}', CONF.scenario_test.ecs_id)
-            self.ecs = self.manager.get_ecs(CONF.scenario_test.ecs_id)
+        if CONF.ecs_test.ecs_id and 'create' not in self.actions[:1]:
+            LOG.warning('test with ecs {}', CONF.ecs_test.ecs_id)
+            self.ecs = self.manager.get_ecs(CONF.ecs_test.ecs_id)
         else:
             self.ecs = None
 
-        jobs: list[ecs_actions.EcsActionTestBase] = []
+        jobs: list[base.EcsActionTestBase] = []
         for action in self.actions:
             LOG.info('== Test {}', action,
                      ecs='{:36}'.format(self.ecs and self.ecs.id or '-'))
             test_cls = ecs_actions.VM_TEST_SCENARIOS.get(action)
-            job: ecs_actions.EcsActionTestBase = test_cls(self.ecs,
-                                                          self.manager)
+            job: base.EcsActionTestBase = test_cls(self.ecs, self.manager)
             try:
                 job.run()
+                self.ecs = job.ecs
             except exceptions.SkipActionException as e:
                 LOG.warning('{}', e, ecs=(self.ecs and self.ecs.id))
             else:
-                self.ecs = job.ecs
-                LOG.success('== Test {} is ok', action, ecs=self.ecs.id)
+                LOG.success('== Test {} is ok', action,
+                            ecs=(self.ecs and self.ecs.id))
                 jobs.append(job)
 
         LOG.info('==== Tear Down ECS action test ====')
@@ -121,17 +122,17 @@ class ECSScenarioTest(object):
             job.tear_down()
 
     def _cleanup(self):
-        if not CONF.scenario_test.ecs_id and self.ecs and \
-           CONF.scenario_test.cleanup_error_vms:
-            LOG.info('cleanup', ecs=self.ecs.id)
+        if not CONF.ecs_test.ecs_id and self.ecs and \
+           CONF.ecs_test.cleanup_error_vms:
+            LOG.info('cleanup ...', ecs=self.ecs.id)
             self.manager.delete_ecs(self.ecs)
 
     def run(self, pre_check=True):
         try:
             self._test_actions(pre_check=pre_check)
-        except exceptions.EcsTestFailed as e:
+        except (exceptions.EcsTestFailed):
             self._cleanup()
-            raise e
+            raise
         except Exception as e:
             self._cleanup()
             raise exceptions.EcsTestFailed(ecs=self.ecs and self.ecs.id,
@@ -163,37 +164,41 @@ def test_with_process():
 
     ng = 0
     for result in utils.run_processes(do_test_vm,
-                                      nums=CONF.scenario_test.total,
-                                      max_workers=CONF.scenario_test.worker):
+                                      nums=CONF.ecs_test.total,
+                                      max_workers=CONF.ecs_test.worker):
         if result == 'ng':
             ng += 1
 
-    utils.report_results(CONF.scenario_test.total, ng)
+    utils.report_results(CONF.ecs_test.total, ng)
     if ng:
         raise exceptions.TestFailed()
 
 
 def test_without_process():
     ng = 0
-    for _ in range(CONF.scenario_test.total):
+    for _ in range(CONF.ecs_test.total):
         test_task = ECSScenarioTest(parse_test_actions())
         try:
             test_task.before_run()
             test_task.run(pre_check=False)
-        except Exception as e:
-            LOG.exception('test failed, {}', e)
+        except (exceptions.EcsTestFailed,
+                exceptions.VMIsError) as e:
+            LOG.error('test failed: {}', e)
             ng += 1
-    utils.report_results(CONF.scenario_test.total, ng)
+        except Exception as e:
+            LOG.exception('test failed: {}', e)
+            ng += 1
+    utils.report_results(CONF.ecs_test.total, ng)
     if ng:
         raise exceptions.TestFailed()
 
 
 def parse_test_actions() -> list:
-    if CONF.scenario_test.random_order:
-        test_scenarios = random.sample(CONF.scenario_test.scenarios,
-                                       len(CONF.scenario_test.scenarios))
+    if CONF.ecs_test.random_order:
+        test_scenarios = random.sample(CONF.ecs_test.scenarios,
+                                       len(CONF.ecs_test.scenarios))
     else:
-        test_scenarios = CONF.scenario_test.scenarios
+        test_scenarios = CONF.ecs_test.scenarios
 
     actions = []
     for scenario in test_scenarios:
@@ -209,7 +214,7 @@ def parse_test_actions() -> list:
 
     if not actions:
         raise exceptions.InvalidConfig(reason="test action is empty")
-    if not CONF.scenario_test.ecs_id and 'create' not in actions[:1]:
+    if not CONF.ecs_test.ecs_id and 'create' not in actions[:1]:
         raise exceptions.InvalidConfig(
             reason="test action 'create' is required if 'ecs_id' is empty")
 

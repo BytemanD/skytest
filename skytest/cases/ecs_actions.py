@@ -1,10 +1,8 @@
-from concurrent import futures
 import time
 
 from skytest.common import conf
 from skytest.common import exceptions
 from skytest.common import log
-from skytest.common import utils
 from . import base
 
 CONF = conf.CONF
@@ -15,17 +13,19 @@ class EcsCreateTest(base.EcsActionTestBase):
 
     def start(self):
         self.ecs = self.manager.create_ecs()
-        LOG.info('boot success', ecs=self.ecs.id)
         try:
             self.wait_for_ecs_created()
-            self.ecs_must_has_ok_console_log()
         except Exception as e:
             LOG.exception(e)
             raise exceptions.EcsTestFailed(
                 ecs=self.ecs.id, action='create',
                 reason=f'{e}')
         LOG.info('ecs status is {}', self.ecs.status, ecs=self.ecs.id)
+        if CONF.ecs_test.enable_varify_console_log:
+            LOG.info('varify console log matched', ecs=self.ecs.id)
+            self.ecs_must_have_ok_console_log()
         self.guest_must_have_all_ipaddress()
+        self.guest_must_have_all_block()
 
     def tear_down(self):
         self.manager.delete_ecs(self.ecs)
@@ -130,7 +130,7 @@ class EcsAttachInterfaceLoopTest(base.EcsActionTestBase):
 
     def start(self):
         self.attached_ports = []
-        for i in range(CONF.scenario_test.attach_interface_nums_each_time):
+        for i in range(CONF.ecs_test.attach_interface_nums_each_time):
             LOG.info('attaching interface {}', i + 1, ecs=self.ecs.id)
             port_id = self.manager.attach_net(self.ecs,
                                               CONF.openstack.attach_net)
@@ -188,7 +188,7 @@ class EcsAttachVolumeLoopTest(base.EcsActionTestBase):
 
     def start(self):
         self.create_volumes(
-            10, num=CONF.scenario_test.attach_volume_nums_each_time)
+            10, num=CONF.ecs_test.attach_volume_nums_each_time)
 
         for (i, volume) in enumerate(self.created_volumes):
             LOG.info('attach volume {}', i + 1, ecs=self.ecs.id)
@@ -198,9 +198,9 @@ class EcsAttachVolumeLoopTest(base.EcsActionTestBase):
         self.guest_must_have_all_block()
 
         LOG.debug('sleep {} seconds before detach volume',
-                  CONF.scenario_test.device_toggle_min_interval,
+                  CONF.ecs_test.device_toggle_min_interval,
                   ecs=self.ecs.id)
-        time.sleep(CONF.scenario_test.device_toggle_min_interval)
+        time.sleep(CONF.ecs_test.device_toggle_min_interval)
         for (i, volume) in enumerate(self.created_volumes):
             self.manager.detach_volume(self.ecs, volume.id)
             self.wait_for_ecs_task_finished()

@@ -20,7 +20,7 @@ class OpenstackConf(cfg2.OptionGroup):
     boot_az = cfg2.Option('boot_az')
 
 
-class ScenarioTestConf(cfg2.OptionGroup):
+class ECSTestConf(cfg2.OptionGroup):
     ecs_id = cfg2.Option('ecs_id')
     total = cfg2.IntOption('total', default=1)
     worker = cfg2.IntOption('worker', default=1)
@@ -86,7 +86,7 @@ class AppConf(cfg2.TomlConfig):
     manager = cfg2.Option('manager', default='openstack')
 
     openstack = OpenstackConf()
-    scenario_test = ScenarioTestConf()
+    ecs_test = ECSTestConf()
     reboot = RebootConf()
     hard_reboot = HardRebootConf()
 

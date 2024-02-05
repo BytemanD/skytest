@@ -34,17 +34,16 @@ def action_test(verbose, log_file, conf_file):
         sys.exit(1)
 
     LOG.info('worker: {}, total: {}, scenarios: {}',
-             CONF.scenario_test.worker, CONF.scenario_test.total,
-             CONF.scenario_test.scenarios)
+             CONF.ecs_test.worker, CONF.ecs_test.total,
+             CONF.ecs_test.scenarios)
 
     try:
-        if CONF.scenario_test.worker == 1:
+        if CONF.ecs_test.worker == 1:
             scenario.test_without_process()
         else:
             scenario.test_with_process()
     except (exceptions.InvalidConfig, exceptions.InvalidScenario,
-            exceptions.TestFailed, exceptions.EcsTestFailed,
-            ) as e:
+            exceptions.TestFailed, exceptions.EcsTestFailed) as e:
         LOG.error('{}', e)
         sys.exit(1)
 

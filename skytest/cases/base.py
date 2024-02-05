@@ -9,7 +9,7 @@ from skytest.common import log
 from skytest.common import model
 from skytest.common import libvirt_guest
 from skytest.common import utils
-from skytest.managers import base
+from skytest.managers import base as base_manager
 
 CONF = conf.CONF
 LOG = log.getLogger()
@@ -20,7 +20,8 @@ REG_LSBLK = r'NAME="([\w/]+)" SIZE="([\w.]+)" +TYPE="([\w]+)"'
 
 class EcsActionTestBase(object):
 
-    def __init__(self, ecs: model.ECS, manager: base.BaseManager) -> None:
+    def __init__(self, ecs: model.ECS,
+                 manager: base_manager.BaseManager) -> None:
         self.ecs = ecs
         self.manager = manager
         self._guest: libvirt_guest.LibvirtGuest = None
@@ -35,7 +36,7 @@ class EcsActionTestBase(object):
         self.start()
 
     @retry(exceptions=exceptions.EcsIsNotCreated,
-           tries=CONF.scenario_test.boot_timeout/5, delay=5)
+           tries=CONF.ecs_test.boot_timeout/5, delay=5)
     def wait_for_ecs_created(self):
         if not self.ecs:
             raise Exception(f'{self.__class__}.ecs is None')
@@ -145,7 +146,7 @@ class EcsActionTestBase(object):
                  ecs=self.ecs.id)
 
     def guest_must_have_all_ipaddress(self):
-        if not CONF.scenario_test.enable_guest_qga_command:
+        if not CONF.ecs_test.enable_guest_qga_command:
             return
         ecs_ip_address = set(self.manager.get_ecs_ip_address(self.ecs))
         LOG.info("ecs has ip address: {}", ecs_ip_address, ecs=self.ecs.id)
@@ -153,19 +154,8 @@ class EcsActionTestBase(object):
 
     @retry(exceptions=exceptions.EcsDoseNotHaveBlock,
            tries=60, delay=1, backoff=2, max_delay=10)
-    def _guest_must_have_all_block(self, ecs_blocks):
-        found = set(re.findall(r'NAME="([a-zA-Z/]+)"',
-                               self.get_libvirt_guest().lsblk()))
-        LOG.debug('found blocks: {}', found, ecs=self.ecs.id)
-        if set(ecs_blocks) != set(found):
-            raise exceptions.EcsDoseNotHaveBlock(self.ecs.id,
-                                                 ecs_blocks - found)
-        LOG.info('domain has all blocks {}', ecs_blocks, ecs=self.ecs.id)
-
-    @retry(exceptions=exceptions.EcsDoseNotHaveBlock,
-           tries=60, delay=1, backoff=2, max_delay=10)
     def guest_must_have_all_block(self):
-        if not CONF.scenario_test.enable_guest_qga_command:
+        if not CONF.ecs_test.enable_guest_qga_command:
             return
         ecs_blocks = set(self.manager.get_ecs_blocks(self.ecs))
         LOG.info("ecs has blocks: {}", ecs_blocks, ecs=self.ecs.id)
@@ -214,7 +204,7 @@ class EcsActionTestBase(object):
     @retry(exceptions=exceptions.GuestBlockSizeNotExtend,
            tries=12, delay=1, backoff=2, max_delay=5)
     def guest_block_size_must_be(self, name, size):
-        if not CONF.scenario_test.enable_guest_qga_command:
+        if not CONF.ecs_test.enable_guest_qga_command:
             return
         blocks = [blk for blk in self.guest_find_all_blocks()
                   if blk['name'] == name]
@@ -227,19 +217,19 @@ class EcsActionTestBase(object):
                  ecs=self.ecs.id)
 
     @retry(exceptions=exceptions.EcsNotMatchOKConsoleLog,
-           tries=CONF.scenario_test.console_log_timeout,
+           tries=CONF.ecs_test.console_log_timeout,
            delay=1, backoff=2, max_delay=5)
-    def ecs_must_has_ok_console_log(self):
-        if not CONF.scenario_test.enable_varify_console_log:
+    def ecs_must_have_ok_console_log(self):
+        if not CONF.ecs_test.enable_varify_console_log:
             return
-        output = self.manager.get_ecs_console_log(self.ecs)
+        output = self.manager.get_ecs_console_log(self.ecs, length=10)
         LOG.debug('console log:\n{}', output, ecs=self.ecs.id)
-        for key in CONF.scenario_test.console_log_ok_keys:
+        for key in CONF.ecs_test.console_log_ok_keys:
             if key in output:
-                LOG.info('found {} in console.log', key, esc=self.ecs.id)
+                LOG.info('found "{}" in console.log', key, ecs=self.ecs.id)
                 return
-        for key in CONF.scenario_test.console_log_error_keys:
+        for key in CONF.ecs_test.console_log_error_keys:
             if key in output:
-                LOG.error('found {} in console.log', key, esc=self.ecs.id)
+                LOG.error('found "{}" in console.log', key, ecs=self.ecs.id)
                 raise exceptions.EcsMatchErrorConsoleLog(self.ecs.id)
         raise exceptions.EcsNotMatchOKConsoleLog(self.ecs.id)
