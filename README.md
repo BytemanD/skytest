@@ -10,7 +10,7 @@ python >= 3.6.0
 
 1. 安装依赖包
     ```
-    yum install -y glibc gcc python3-devel libvirt python-libvirt
+    yum install -y glibc gcc python3-devel libvirt python-libvirt libvirt-devel
     pip3 install -r requirements.txt
     ```
 2. 打包

@@ -1,0 +1,32 @@
+[project]
+name = "skytest"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "BytemanD", email = "byteman.e@outlook.com"},
+]
+dependencies = [
+    "wheel",
+    "click",
+    "loguru",
+    "retry",
+    "toml",
+    "prettytable",
+    "libvirt-python",
+    "python-novaclient",
+    "python-glanceclient",
+    "python-neutronclient",
+    "python-cinderclient",
+    "python-keystoneclient",
+    "easy2use @ file:///mnt/e/%E4%BB%A3%E7%A0%81/easy-to-use/dist/easy2use-1.0.6-py3-none-any.whl",
+]
+requires-python = "==3.10.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
+
+[project.scripts]
+skytest-ecs = "skytest.cmd.ecs_test:main"
