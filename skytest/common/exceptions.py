@@ -211,3 +211,7 @@ class EcsNotMatchOKConsoleLog(base_exc.BaseException):
 
 class EcsMatchErrorConsoleLog(base_exc.BaseException):
     _msg = '{} matched error error console log'
+
+
+class EcsNameNotMatch(base_exc.BaseException):
+    _msg = 'ecs {} is not "{}"'

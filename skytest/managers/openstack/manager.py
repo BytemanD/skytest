@@ -469,3 +469,6 @@ class OpenstackManager:
 
     def extend_volume(self, volume: model.Volume, new_size):
         self.client.extend_volume(volume.id, new_size)
+
+    def rename_ecs(self, ecs: model.ECS, name: str):
+        self.client.nova.servers.update(ecs.id, name)

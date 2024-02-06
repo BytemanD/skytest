@@ -233,3 +233,13 @@ class EcsActionTestBase(object):
                 LOG.error('found "{}" in console.log', key, ecs=self.ecs.id)
                 raise exceptions.EcsMatchErrorConsoleLog(self.ecs.id)
         raise exceptions.EcsNotMatchOKConsoleLog(self.ecs.id)
+
+    @retry(exceptions=exceptions.EcsNameNotMatch,
+           tries=10, delay=1, max_delay=6)
+    def ecs_must_have_name(self, name):
+        if not CONF.ecs_test.enable_guest_qga_command:
+            return
+        guest = self.get_libvirt_guest()
+        hostname = guest.hostname()
+        if hostname != name:
+            raise exceptions.EcsNameNotMatch(self.ecs.id, name)

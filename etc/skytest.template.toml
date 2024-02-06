@@ -30,12 +30,13 @@ flavor = ''
 
 ##### 指定需要测试的场景,
 # 支持的操作：
+#   rename,
 #   stop, start, reboot
 #   attach_interface, attach_interface_loop
 #   attach_volume, attach_volume_loop
 #   start, stop, reboot
 #   extend_volume
-#   live_migrate
+#   live_migrate, migrate
 # 可以指定多个，例如 attach_interface:2 表示 <action 名>[:<数值>]
 
 # scenarios =

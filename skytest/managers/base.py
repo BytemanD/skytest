@@ -140,6 +140,10 @@ class BaseManager(metaclass=abc.ABCMeta):
     def get_available_services(host=None, zone=None, binary=None):
         pass
 
+    @abc.abstractmethod
+    def rename_ecs(self, ecs: model.ECS, name):
+        pass
+
 
 def get_manager():
     if CONF.manager == 'openstack':

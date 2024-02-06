@@ -252,6 +252,25 @@ class EcsMigrateTest(base.EcsActionTestBase):
         LOG.info('host is {}', self.ecs.host, ecs=self.ecs.id)
 
 
+class EcsRenameTest(base.EcsActionTestBase):
+
+    def start(self):
+        src_name = self.ecs.name
+        new_name = f'{src_name}-newName'
+        LOG.info('source name is {}', src_name, ecs=self.ecs.id)
+        LOG.info('change ecs name to  {}', new_name, ecs=self.ecs.id)
+        self.manager.rename_ecs(self.ecs, new_name)
+        self.ecs = self.manager.get_ecs(self.ecs.id)
+        if self.ecs.name != new_name:
+            raise exceptions.EcsNameNotMatch(self.ecs.id, new_name)
+        try:
+            self.ecs_must_have_name(new_name)
+        except exceptions.EcsNameNotMatch:
+            raise exceptions.EcsTestFailed(
+                ecs=self.ecs.id, action='rename',
+                reason=f'ecs name is not {new_name}')
+
+
 class EcsExtendVolumeTest(base.EcsActionTestBase):
 
     def start(self):
@@ -292,4 +311,5 @@ VM_TEST_SCENARIOS = {
     'extend_volume': EcsExtendVolumeTest,
     'live_migrate': EcsLiveMigrateTest,
     'migrate': EcsMigrateTest,
+    'rename': EcsRenameTest
 }

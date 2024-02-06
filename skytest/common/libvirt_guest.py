@@ -150,7 +150,7 @@ class LibvirtGuest(object):
     def is_ip_exists(self, ipaddress):
         return f'inet {ipaddress}/' in self.ip_a()
 
-    def hostname(self):
+    def hostname(self) -> str:
         return self.guest_exec(['/usr/bin/hostname'])
 
     def whereis_cmd(self, cmd):
