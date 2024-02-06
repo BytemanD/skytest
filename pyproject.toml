@@ -18,7 +18,7 @@ dependencies = [
     "python-neutronclient",
     "python-cinderclient",
     "python-keystoneclient",
-    "easy2use @ file:///mnt/e/%E4%BB%A3%E7%A0%81/easy-to-use/dist/easy2use-1.0.6-py3-none-any.whl",
+    "easy2use @ https://github.com/BytemanD/easy-to-use/releases/download/dev/easy2use-1.0.6.dev12-py3-none-any.whl"
 ]
 requires-python = "==3.10.*"
 readme = "README.md"
@@ -26,7 +26,11 @@ license = {text = "MIT"}
 
 
 [tool.pdm]
-distribution = false
+distribution = true
 
 [project.scripts]
 skytest-ecs = "skytest.cmd.ecs_test:main"
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
