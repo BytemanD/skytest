@@ -50,11 +50,12 @@ flavor = ''
 ##### 清理错误的虚拟机
 # cleanup_error_vms = true
 
-##### 允许检查 libvirt guest 内部 ip地址和block 设备
-# enable_varify_guest_ip_address = false
-# enable_varify_guest_ip_address = false
+##### 允许通过libvirt 连接 ECS 实例, 允许通过 QGA 命令
+# enable_guest_connection = false
+# enable_guest_qga_command = false
+
+##### 允许检查 ECS console log
+# enable_varify_console_log = false
 
 ##### 跨设备热插拔的最少间隔
 # device_toggle_min_interval = 4
-##### 允许检查 ECS console log
-# enable_varify_console_log = false

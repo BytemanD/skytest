@@ -53,8 +53,6 @@ class ECSTestConf(cfg2.OptionGroup):
     device_toggle_min_interval = cfg2.IntOption(
         'device_toggle_min_interval', default=4)
 
-    enable_varify_console_log = cfg2.BoolOption('enable_varify_console_log',
-                                                default=False)
     enable_guest_qga_command = cfg2.BoolOption('enable_guest_qga_command',
                                                default=False)
     enable_guest_connection = cfg2.BoolOption('enable_guest_connection',
