@@ -463,12 +463,22 @@ class OpenstackManager:
         return model.VolumeAttachment(attached.id, volumeId=attached.volumeId,
                                       device=attached.device)
 
+    @wrap_exceptions
     def get_ecs_volumes(self, ecs: model.ECS) -> list[model.VolumeAttachment]:
         return [self._parse_volume_attachment(vol)
                 for vol in self.client.get_ecs_volumes(ecs.id)]
 
+    @wrap_exceptions
     def extend_volume(self, volume: model.Volume, new_size):
         self.client.extend_volume(volume.id, new_size)
 
+    @wrap_exceptions
     def rename_ecs(self, ecs: model.ECS, name: str):
         self.client.nova.servers._action('rename', ecs.id, {'name': name})
+
+    def must_support_action(self, ecs: model.ECS, action):
+        if action == 'rename':
+            if CONF.openstack.nova_api_version < '2.53':
+                raise exceptions.ActionNotSuppport(
+                    'rename', reason='nova api version must >= 2.53')
+        return True

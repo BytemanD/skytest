@@ -144,6 +144,9 @@ class BaseManager(metaclass=abc.ABCMeta):
     def rename_ecs(self, ecs: model.ECS, name):
         pass
 
+    def must_support_action(self, ecs: model.ECS, action):
+        pass
+
 
 def get_manager():
     if CONF.manager == 'openstack':

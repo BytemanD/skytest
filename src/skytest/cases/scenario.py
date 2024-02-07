@@ -111,7 +111,8 @@ class ECSScenarioTest(object):
                 job.run()
                 self.ecs = job.ecs
             except exceptions.SkipActionException as e:
-                LOG.warning('{}', e, ecs=(self.ecs and self.ecs.id))
+                LOG.warning('skip test action "{}": {}', action, e,
+                            ecs=(self.ecs and self.ecs.id))
             else:
                 LOG.success('== Test {} is ok', action,
                             ecs=(self.ecs and self.ecs.id))

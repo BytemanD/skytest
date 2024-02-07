@@ -255,11 +255,15 @@ class EcsMigrateTest(base.EcsActionTestBase):
 class EcsRenameTest(base.EcsActionTestBase):
 
     def start(self):
+        self.manager.must_support_action(self.ecs, 'rename')
+        if not CONF.ecs_test.enable_guest_qga_command:
+            raise exceptions.SkipActionException(
+                'enable_guest_qga_command is false')
         src_name = self.ecs.name
         new_name = f'{self.__class__.__name__}-newName'
-        LOG.info('source name is {}', src_name, ecs=self.ecs.id)
+        LOG.info('source name is "{}"', src_name, ecs=self.ecs.id)
         self.manager.rename_ecs(self.ecs, new_name)
-        LOG.info('change ecs name to  {}', new_name, ecs=self.ecs.id)
+        LOG.info('change ecs name to "{}"', new_name, ecs=self.ecs.id)
         self.ecs = self.manager.get_ecs(self.ecs.id)
         if self.ecs.name != new_name:
             raise exceptions.EcsNameNotMatch(self.ecs.id, new_name)

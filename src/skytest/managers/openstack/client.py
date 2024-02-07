@@ -20,6 +20,7 @@ from skytest.common import log
 CONF = conf.CONF
 LOG = log.getLogger()
 
+
 def get_nova_extensions():
     return [
         ext for ext in nova_client.discover_extensions(

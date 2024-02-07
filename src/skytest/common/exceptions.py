@@ -153,6 +153,10 @@ class SkipActionException(base_exc.BaseException):
     _msg = 'skip this action because {}'
 
 
+class ActionNotSuppport(base_exc.BaseException):
+    _msg = 'action {} not supported({reason})'
+
+
 class EcsIsNotCreated(base_exc.BaseException):
     _msg = 'ECS {} still not created'
 

@@ -33,7 +33,10 @@ class EcsActionTestBase(object):
 
     def run(self):
         self.tear_up()
-        self.start()
+        try:
+            self.start()
+        except exceptions.ActionNotSuppport as e:
+            raise exceptions.SkipActionException(e)
 
     @retry(exceptions=exceptions.EcsIsNotCreated,
            tries=CONF.ecs_test.boot_timeout/5, delay=5)
@@ -244,3 +247,4 @@ class EcsActionTestBase(object):
         LOG.debug('guest hostname is {}', hostname, ecs=self.ecs.id)
         if hostname != name:
             raise exceptions.EcsNameNotMatch(self.ecs.id, name)
+        LOG.info('guest hostname is "{}"', hostname, ecs=self.ecs.id)
