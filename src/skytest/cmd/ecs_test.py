@@ -31,8 +31,8 @@ def action_test(verbose, log_file, conf_file):
     except exceptions.ConfileNotExists as e:
         print(f'ERROR: load config failed, {e}')
         sys.exit(1)
-    log.basic_config(verbose_count=max(len(verbose), CONF.debug and 2 or 0),
-                     log_file=log_file)
+    log.basic_config(verbose_count=max(len(verbose), CONF.verbose),
+                     log_file=log_file or CONF.log_file)
     LOG = log.getLogger()
 
     LOG.info('worker: {}, total: {}, actions: {}',

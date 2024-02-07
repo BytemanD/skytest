@@ -11,6 +11,7 @@ from keystoneclient.v3 import client
 from neutronclient.v2_0 import client as neutron_client
 from novaclient import client as nova_client
 from novaclient import exceptions as nova_exc
+
 from easy2use.common import exceptions as base_exc
 from easy2use.common import retry
 
@@ -38,7 +39,8 @@ class OpenstackClient(object):
     def __init__(self, *args, **kwargs):
         region_name = kwargs.pop('region_name', None)
         self.auth = v3.Password(*args, **kwargs)
-        self.session = Session(auth=self.auth)
+        self.session = Session(auth=self.auth,
+                               connect_retries=CONF.openstack.connect_retries)
         self.keystone = client.Client(session=self.session)
         self.neutron = neutron_client.Client(session=self.session,
                                              region_name=region_name)
@@ -129,7 +131,7 @@ class OpenstackClient(object):
                                                       action.request_id)
             events = sorted(vm_action.events,
                             key=lambda x: x.get('start_time'))
-            action_events.append((action.action, events))
+            action_events.append((action.action, action.request_id, events))
         return action_events
 
     def get_server_interfaces(self, server_id):

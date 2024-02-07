@@ -359,16 +359,18 @@ class OpenstackManager:
                                                            length=length)
 
     def report_ecs_actions(self, ecs: model.ECS):
-        pt = prettytable.PrettyTable(['Action', 'Event', 'StartTime',
-                                      'EndTime', 'Host', 'Result'])
+        pt = prettytable.PrettyTable(['Action', 'Request Id', 'Event',
+                                      'StartTime', 'EndTime', 'Host',
+                                      'Result'])
         pt.align['Action'] = 'l'
         pt.align['Event'] = 'l'
         vm_actions = self.client.get_server_events(ecs.id)
 
         # vm_actions = sorted(vm_actions, key=lambda x: x[1][0]['start_time'])
-        for action_name, events in vm_actions:
+        for action_name, req_id, events in vm_actions:
             for i, event in enumerate(events or []):
                 pt.add_row([action_name if i == 0 else "",
+                            req_id if i == 0 else "",
                             event['event'], event['start_time'],
                             event['finish_time'], event.get('host'),
                             event['result']])

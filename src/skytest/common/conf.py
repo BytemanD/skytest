@@ -25,6 +25,7 @@ class OpenstackConf(cfg2.OptionGroup):
     volume_size = cfg2.IntOption('volume_size', default=50)
     boot_az = cfg2.Option('boot_az')
     nova_api_version = cfg2.Option('nova_api_version', default='2.40')
+    connect_retries = cfg2.IntOption('connect_retries', default=1)
 
 
 class ECSTestConf(cfg2.OptionGroup):
@@ -86,14 +87,12 @@ class HardRebootConf(cfg2.OptionGroup):
 
 
 class AppConf(cfg2.TomlConfig):
-    debug = cfg2.BoolOption('debug', default=False)
-    log_to = cfg2.Option('log_to', default=None)
+    verbose = cfg2.IntOption('verbose', default=0)
+    log_file = cfg2.Option('log_file', default=None)
     manager = cfg2.Option('manager', default='openstack')
 
     openstack = OpenstackConf()
     ecs_test = ECSTestConf()
-    reboot = RebootConf()
-    hard_reboot = HardRebootConf()
 
 
 def load_configs(conf_file=None):

@@ -1,13 +1,23 @@
-[DEFAULT]
-debug = false
+##### 日志级别
+#  0: INFO
+#  1: DEBUG
+#  2: 更多日志
+# verbose = 0
+# debug = false
+# log_file = 
+# manager = 'openstack'
 
 [openstack]
-##### 环境变量文件
-env = ''
+##### 认证信息
+auth_url = 'http://keystone-server:35357/v3'
+auth_username = ''
+auth_password = ''
+auth_project_name = ''
+
 ##### 镜像ID
 image_id = ''
-##### 规格ID
-flavor = ''
+##### 规格ID, 第一个
+flavors = ''
 
 ##### 创建虚拟机使用的网络ID列表
 # net_ids = 
@@ -37,7 +47,7 @@ flavor = ''
 #   start, stop, reboot
 #   extend_volume
 #   live_migrate, migrate
-# 可以指定多个，例如 attach_interface:2 表示 <action 名>[:<数值>]
+# 可以指定多个，格式: <action 名>[:<次数>], 例如 attach_interface:3 表示测试三次挂载网卡
 
 # actions =
 
