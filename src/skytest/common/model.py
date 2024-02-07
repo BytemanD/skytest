@@ -25,6 +25,9 @@ class ECS:
     def is_building(self):
         return self.status.upper() == 'BUILDING'
 
+    def is_shelved(self):
+        return self.status.upper() == 'SHELVED_OFFLOADED'
+
     def has_task(self):
         return not not self.task_state
 

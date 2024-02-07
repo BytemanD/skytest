@@ -110,6 +110,12 @@ class ECSScenarioTest(object):
             except exceptions.SkipActionException as e:
                 LOG.warning('skip test action "{}": {}', action, e,
                             ecs=(self.ecs and self.ecs.id))
+            except exceptions.EcsTestFailed:
+                raise
+            except Exception as e:
+                raise exceptions.EcsTestFailed(
+                    ecs=self.ecs and self.ecs.id or '-',
+                    action=action, reason=f'{str(e)}')
             else:
                 LOG.success('== Test {} is ok', action,
                             ecs=(self.ecs and self.ecs.id))
@@ -182,7 +188,7 @@ def test_without_process():
             test_task.run(pre_check=False)
         except (exceptions.InvalidConfig, exceptions.InvalidFlavor,
                 exceptions.InvalidImage, exceptions.EcsTestFailed,
-                exceptions.VMIsError) as e:
+                exceptions.EcsIsError) as e:
             LOG.error('test failed: {}', e)
             ng += 1
         except Exception as e:

@@ -1,6 +1,7 @@
 import re
 
 from concurrent import futures
+import libvirt
 from retry import retry
 
 from skytest.common import conf
@@ -49,7 +50,7 @@ class EcsActionTestBase(object):
                   self.ecs.status, self.ecs.task_state, self.ecs.host,
                   ecs=self.ecs.id)
         if self.ecs.is_error():
-            raise exceptions.VMIsError(vm=self.ecs.id)
+            raise exceptions.EcsIsError(self.ecs.id)
         if self.ecs.is_building() or self.ecs.has_task():
             raise exceptions.EcsIsNotCreated(self.ecs.id)
 
@@ -65,7 +66,7 @@ class EcsActionTestBase(object):
         except exceptions.ECSNotFound:
             return
         if self.ecs.is_error():
-            raise exceptions.VMIsError(vm=self.ecs.id)
+            raise exceptions.EcsIsError(self.ecs.id)
         raise exceptions.EcsIsNotDeleted(self.ecs.id)
 
     @retry(exceptions=exceptions.EcsHasTask,
@@ -127,15 +128,15 @@ class EcsActionTestBase(object):
             raise exceptions.VolumeIsNotInuse(volume.id)
         return vol
 
-    def get_libvirt_guest(self):
-        ecs_host_ip = self.manager.get_host_ip(self.ecs.host)
+    def get_libvirt_guest(self, host=None) -> libvirt_guest.LibvirtGuest:
+        ecs_host_ip = host or self.manager.get_host_ip(self.ecs.host)
         if not self._guest or self._guest.host != ecs_host_ip:
             self._guest = libvirt_guest.LibvirtGuest(self.ecs.id,
                                                      host=ecs_host_ip)
         return self._guest
 
     @retry(exceptions=exceptions.EcsDoseNotHaveIpAddress,
-           tries=60, delay=1, backoff=2, max_delay=10)
+           tries=6, delay=1, backoff=2, max_delay=10)
     def _guest_must_have_all_ipaddress(self, ecs_ip_address):
         found = set(
             re.findall(r'inet ([0-9.]+)/', self.get_libvirt_guest().ip_a()))
@@ -251,3 +252,30 @@ class EcsActionTestBase(object):
 
     def get_ecs_flavor_id(self) -> str:
         return self.manager.get_ecs_flavor_id(self.ecs)
+
+    @retry(exceptions=libvirt.libvirtError, tries=60*6, delay=5)
+    def wait_ecs_qga_connected(self):
+        if not CONF.ecs_test.enable_guest_qga_command:
+            return
+        LOG.debug('waiting QGA is connected', ecs=self.ecs.id)
+        guest = self.get_libvirt_guest()
+        guest.guest_exec('hostname')
+
+    @retry(exceptions=exceptions.EcsGuestIsNotActive, tries=60*6, delay=5)
+    def wait_ecs_guest_active(self, host=None):
+        if not CONF.ecs_test.enable_guest_connection:
+            return
+        LOG.debug('waiting guest to be active', ecs=self.ecs.id)
+        guest = self.get_libvirt_guest(host=host)
+        if not guest.is_active:
+            raise exceptions.EcsGuestIsNotActive(self.ecs.id)
+
+    @retry(exceptions=exceptions.EcsGuestIsExists, tries=60, delay=5)
+    def wait_ecs_guest_not_exists(self, host=None):
+        if not CONF.ecs_test.enable_guest_connection:
+            return
+        LOG.debug('waiting guest to be deleted', ecs=self.ecs.id)
+        guest = self.get_libvirt_guest(host=host)
+        if guest.is_exists():
+            raise exceptions.EcsGuestIsExists(self.ecs.id)
+        LOG.info('guest is not exists', ecs=self.ecs.id)

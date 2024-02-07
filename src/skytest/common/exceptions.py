@@ -65,8 +65,8 @@ class WaitVMStatusTimeout(base_exc.BaseException):
     _msg = 'wait {vm} status timeout, expect: {expect}, actual: {actual}'
 
 
-class VMIsError(base_exc.BaseException):
-    _msg = 'vm {vm} status is error'
+class EcsIsError(base_exc.BaseException):
+    _msg = 'vm {} status is error'
 
 
 class LoopTimeout(base_exc.BaseException):
@@ -185,8 +185,8 @@ class VolumeIsNotDeleted(base_exc.BaseException):
     _msg = 'Volume {} is still not deleted'
 
 
-class VolumeIsNotAvailable(base_exc.BaseException):
-    _msg = 'Volume {} is still not available'
+class EcsNotMigrated(base_exc.BaseException):
+    _msg = 'ecs {} is not migrated'
 
 
 class VolumeNotFound(base_exc.BaseException):
@@ -218,4 +218,20 @@ class EcsMatchErrorConsoleLog(base_exc.BaseException):
 
 
 class EcsNameNotMatch(base_exc.BaseException):
-    _msg = 'ecs {} is not "{}"'
+    _msg = 'ecs {} name is not "{}"'
+
+
+class EcsStatusNotMatch(base_exc.BaseException):
+    _msg = 'ecs {} status is not "{}"'
+
+
+class EcsFlavorNotMatch(base_exc.BaseException):
+    _msg = 'ecs {} flavor is not "{}"'
+
+
+class EcsGuestIsNotActive(base_exc.BaseException):
+    _msg = 'ecs {} guest is not active'
+
+
+class EcsGuestIsExists(base_exc.BaseException):
+    _msg = 'ecs {} guest is still exists'

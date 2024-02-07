@@ -87,7 +87,7 @@ class OpenstackManager:
         def check_vm_status(ecs):
             ecs = self.get_ecs(ecs.id)
             if ecs.is_error():
-                raise exceptions.VMIsError(vm=ecs.id)
+                raise exceptions.EcsIsError(ecs.id)
             LOG.debug('status={}, stask state={}',
                       ecs.status, ecs.task_state, ecs=ecs.id)
             return ecs.status in states \
@@ -473,12 +473,21 @@ class OpenstackManager:
         LOG.debug('rebuild with image {}', image, ecs=ecs.id)
         self.client.nova.servers.rebuild(ecs.id, image, password=password)
 
+    @wrap_exceptions
     def resize_ecs(self, ecs: model.ECS, flavor):
         self.client.nova.servers.resize(ecs.id, flavor)
 
     @wrap_exceptions
     def rename_ecs(self, ecs: model.ECS, name: str):
         self.client.nova.servers._action('rename', ecs.id, {'name': name})
+
+    @wrap_exceptions
+    def shelve_ecs(self, ecs: model.ECS):
+        self.client.nova.servers.shelve(ecs.id)
+
+    @wrap_exceptions
+    def unshelve_ecs(self, ecs: model.ECS):
+        self.client.nova.servers.unshelve(ecs.id)
 
     @wrap_exceptions
     def get_ecs_flavor_id(self, ecs: model.ECS):

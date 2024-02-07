@@ -6,7 +6,6 @@ import pathlib
 
 import libvirt
 import libvirt_qemu
-from retry import retry
 
 from skytest.common import log
 from skytest.common import utils
@@ -81,6 +80,10 @@ class LibvirtGuest(object):
     def uuid(self):
         return self.domain.UUIDString()
 
+    @property
+    def is_active(self):
+        return self.domain.isActive()
+
     def _get_agent_exec_cmd(self, cmd):
         """
         param: cmd   list or str
@@ -97,14 +100,13 @@ class LibvirtGuest(object):
         return json.dumps(
             {'execute': 'guest-exec-status', 'arguments': {'pid': pid}})
 
-    @retry(exceptions=libvirt.libvirtError, tries=60*6, delay=5)
-    def guest_exec(self, cmd, wait_exists=True, timeout=60) -> (str|int):
+    def guest_exec(self, cmd, wait_exists=True, timeout=60) -> (str | int):
         exec_cmd = self._get_agent_exec_cmd(cmd)
         result = libvirt_qemu.qemuAgentCommand(self.domain, exec_cmd,
                                                timeout, 0)
         result_obj = json.loads(result)
         cmd_pid = result_obj.get('return', {}).get('pid')
-        LOG.debug('RUN: {} => PID: {}', cmd, cmd_pid,
+        LOG.debug('RUN by qga: {} => PID: {}', cmd, cmd_pid,
                   vm=self.domain.UUIDString(),
                   ecs=self.uuid)
 

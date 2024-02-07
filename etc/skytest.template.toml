@@ -47,6 +47,7 @@ flavors = ''
 #   start, stop, reboot
 #   extend_volume
 #   live_migrate, migrate
+#   shelve/unshelve
 # 可以指定多个，格式: <action 名>[:<次数>], 例如 attach_interface:3 表示测试三次挂载网卡
 
 # actions =

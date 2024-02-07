@@ -34,6 +34,7 @@ class EcsCreateTest(base.EcsActionTestBase):
         if CONF.ecs_test.enable_varify_console_log:
             LOG.info('varify console log matched', ecs=self.ecs.id)
             self.ecs_must_have_ok_console_log()
+        self.wait_ecs_qga_connected()
         self.guest_must_have_all_ipaddress()
         self.guest_must_have_all_block()
 
@@ -53,9 +54,7 @@ class EcsStopTest(base.EcsActionTestBase):
         self.ecs = self.manager.get_ecs(self.ecs)
         LOG.debug('status is {}', self.ecs.status, ecs=self.ecs.id)
         if not self.ecs.is_stopped():
-            raise exceptions.EcsTestFailed(
-                ecs=self.ecs.id, action='stop',
-                reason=f'vm state is {self.ecs.status}')
+            raise exceptions.EcsStatusNotMatch(self.ecs.id, 'STOPPED')
         LOG.info('stop success', ecs=self.ecs.id)
 
 
@@ -70,9 +69,7 @@ class EcsStartTest(base.EcsActionTestBase):
         self.ecs = self.manager.get_ecs(self.ecs)
         LOG.debug('status is {}', self.ecs.status, ecs=self.ecs.id)
         if not self.ecs.is_active():
-            raise exceptions.EcsTestFailed(
-                ecs=self.ecs.id, action='start',
-                reason=f'vm state is {self.ecs.status}')
+            raise exceptions.EcsStatusNotMatch(self.ecs.id, 'ACTIVE')
         LOG.info('start success', ecs=self.ecs.id)
 
 
@@ -86,9 +83,7 @@ class EcsRebootTest(base.EcsActionTestBase):
         LOG.info('rebooting', ecs=self.ecs.id)
         self.wait_for_ecs_task_finished()
         if not self.ecs.is_active():
-            raise exceptions.EcsTestFailed(
-                ecs=self.ecs.id, action='reboot',
-                reason=f'vm state is {self.ecs.status}')
+            raise exceptions.EcsStatusNotMatch(self.ecs.id, 'ACTIVE')
         LOG.info('reboot success', ecs=self.ecs.id)
 
 
@@ -111,9 +106,7 @@ class EcsAttachInterfaceTest(base.EcsActionTestBase):
         vif = self.manager.attach_net(self.ecs, CONF.openstack.attach_net)
         self.ecs = self.manager.get_ecs(self.ecs.id)
         if self.ecs.is_error():
-            raise exceptions.EcsTestFailed(
-                ecs=self.ecs.id, action='attach_interface',
-                reason=f'ecs is error after attach interface {vif}')
+            raise exceptions.EcsIsError(self.ecs.id)
         self.attached_vifs.append(vif)
 
         vifs = self.manager.get_ecs_interfaces(self.ecs)
@@ -232,15 +225,12 @@ class EcsLiveMigrateTest(base.EcsActionTestBase):
         self.manager.live_migrate_ecs(self.ecs)
         LOG.info('live migrating ...', ecs=self.ecs.id)
         self.wait_for_ecs_task_finished(show_progress=True)
-        if not self.ecs.is_active():
-            raise exceptions.EcsTestFailed(
-                ecs=self.ecs.id, action='live_migrate',
-                reason=f'ecs status is {self.ecs.status}')
-        if self.ecs.host == src_host:
-            raise exceptions.EcsTestFailed(
-                ecs=self.ecs.id, action='live_migrate',
-                reason=f'ecs host is still {self.ecs.host}')
+        if not self.ecs.is_error():
+            raise exceptions.EcsIsError(self.ecs.id)
         LOG.info('host is {}', self.ecs.host, ecs=self.ecs.id)
+        if self.ecs.host == src_host:
+            raise exceptions.EcsNotMigrated(self.ecs.id)
+        self.wait_ecs_qga_connected()
 
 
 class EcsMigrateTest(base.EcsActionTestBase):
@@ -251,15 +241,12 @@ class EcsMigrateTest(base.EcsActionTestBase):
         self.manager.migrate_ecs(self.ecs)
         LOG.info('migrating ...', ecs=self.ecs.id)
         self.wait_for_ecs_task_finished(show_progress=True)
-        if not self.ecs.is_active():
-            raise exceptions.EcsTestFailed(
-                ecs=self.ecs.id, action='live_migrate',
-                reason=f'ecs status is {self.ecs.status}')
-        if self.ecs.host == src_host:
-            raise exceptions.EcsTestFailed(
-                ecs=self.ecs.id, action='live_migrate',
-                reason=f'ecs host is still {self.ecs.host}')
+        if not self.ecs.is_error():
+            raise exceptions.EcsIsError(self.ecs.id)
         LOG.info('host is {}', self.ecs.host, ecs=self.ecs.id)
+        if self.ecs.host == src_host:
+            raise exceptions.EcsNotMigrated(self.ecs.id)
+        self.wait_ecs_qga_connected()
 
 
 class EcsRenameTest(base.EcsActionTestBase):
@@ -277,12 +264,7 @@ class EcsRenameTest(base.EcsActionTestBase):
         self.ecs = self.manager.get_ecs(self.ecs.id)
         if self.ecs.name != new_name:
             raise exceptions.EcsNameNotMatch(self.ecs.id, new_name)
-        try:
-            self.ecs_must_have_name(new_name)
-        except exceptions.EcsNameNotMatch:
-            raise exceptions.EcsTestFailed(
-                ecs=self.ecs.id, action='rename',
-                reason=f'ecs name is not {new_name}')
+        self.ecs_must_have_name(new_name)
 
 
 class EcsExtendVolumeTest(base.EcsActionTestBase):
@@ -317,9 +299,11 @@ class EcsRebuildTest(base.EcsActionTestBase):
     def start(self):
         self.manager.rebuild_ecs(self.ecs)
         self.wait_for_ecs_task_finished()
-        if not self.ecs.is_active():
-            raise exceptions.EcsTestFailed(ecs=self.ecs.id, action='rebuild',
-                                           reason='ecs is not active')
+        if self.ecs.is_error:
+            raise exceptions.EcsIsError(self.ecs.id)
+        self.wait_ecs_qga_connected()
+        self.guest_must_have_all_ipaddress()
+        self.guest_must_have_all_block()
 
 
 class EcsResizeTest(base.EcsActionTestBase):
@@ -337,9 +321,40 @@ class EcsResizeTest(base.EcsActionTestBase):
         ecs_flavor_id = self.get_ecs_flavor_id()
         LOG.info('ecs flavor id is {}', ecs_flavor_id, ecs=self.ecs.id)
         if ecs_flavor_id != flavor_id:
-            raise exceptions.EcsTestFailed(
-                ecs=self.ecs.id, action='resize',
-                reason=f'ecs flavor is not {flavor_id}')
+            raise exceptions.EcsFlavorNotMatch(self.ecs.id, flavor_id)
+
+        self.guest_must_have_all_ipaddress()
+        self.guest_must_have_all_block()
+
+
+class EcsShelveTtest(base.EcsActionTestBase):
+
+    def start(self):
+        src_host = self.manager.get_host_ip(self.ecs.host)
+        self.manager.shelve_ecs(self.ecs)
+        self.wait_for_ecs_task_finished()
+        if not self.ecs.is_shelved():
+            raise exceptions.EcsStatusNotMatch(self.ecs.id, 'shelved')
+        self.wait_ecs_guest_not_exists(host=src_host)
+
+    def tear_down(self):
+        self.manager.unshelve_ecs(self.ecs)
+        self.wait_for_ecs_task_finished()
+        LOG.info('host is {}', self.ecs.host, ecs=self.ecs.id)
+
+
+class EcsUnshelveTtest(base.EcsActionTestBase):
+
+    def start(self):
+        self.manager.unshelve_ecs(self.ecs)
+        self.wait_for_ecs_task_finished()
+        if not self.ecs.is_active():
+            raise exceptions.EcsStatusNotMatch(self.ecs.id, 'ACTIVE')
+        self.wait_ecs_guest_active()
+
+    def tear_down(self):
+        self.manager.shelve_ecs(self.ecs)
+        self.wait_for_ecs_task_finished()
 
 
 VM_TEST_SCENARIOS = {
@@ -357,5 +372,7 @@ VM_TEST_SCENARIOS = {
     'migrate': EcsMigrateTest,
     'rename': EcsRenameTest,
     'rebuild': EcsRebuildTest,
-    'resize': EcsResizeTest
+    'resize': EcsResizeTest,
+    'shelve': EcsShelveTtest,
+    'unshelve': EcsUnshelveTtest,
 }
