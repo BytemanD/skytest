@@ -18,6 +18,7 @@ class OpenstackConf(cfg2.OptionGroup):
     boot_from_volume = cfg2.BoolOption('boot_from_volume', default=False)
     volume_size = cfg2.IntOption('volume_size', default=50)
     boot_az = cfg2.Option('boot_az')
+    nova_api_version = cfg2.Option('nova_api_version', default='2.40')
 
 
 class ECSTestConf(cfg2.OptionGroup):
@@ -92,6 +93,8 @@ class AppConf(cfg2.TomlConfig):
 def load_configs(conf_file=None):
     if not conf_file:
         conf_file = os.getenv('SKYTEST_CONF_FILE')
+        if conf_file:
+            LOG.debug('read from env, use config file {}', conf_file)
     conf_files = [conf_file] if conf_file else [
         '/etc/skytest/skytest.toml',
         pathlib.Path('etc', 'skytest.toml').absolute()

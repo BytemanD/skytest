@@ -256,10 +256,10 @@ class EcsRenameTest(base.EcsActionTestBase):
 
     def start(self):
         src_name = self.ecs.name
-        new_name = f'{src_name}-newName'
+        new_name = f'{self.__class__.__name__}-newName'
         LOG.info('source name is {}', src_name, ecs=self.ecs.id)
-        LOG.info('change ecs name to  {}', new_name, ecs=self.ecs.id)
         self.manager.rename_ecs(self.ecs, new_name)
+        LOG.info('change ecs name to  {}', new_name, ecs=self.ecs.id)
         self.ecs = self.manager.get_ecs(self.ecs.id)
         if self.ecs.name != new_name:
             raise exceptions.EcsNameNotMatch(self.ecs.id, new_name)

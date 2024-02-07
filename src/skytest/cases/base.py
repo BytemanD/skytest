@@ -241,5 +241,6 @@ class EcsActionTestBase(object):
             return
         guest = self.get_libvirt_guest()
         hostname = guest.hostname()
+        LOG.debug('guest hostname is {}', hostname, ecs=self.ecs.id)
         if hostname != name:
             raise exceptions.EcsNameNotMatch(self.ecs.id, name)

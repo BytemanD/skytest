@@ -14,16 +14,18 @@ from novaclient import exceptions as nova_exc
 from easy2use.common import exceptions as base_exc
 from easy2use.common import retry
 
+from skytest.common import conf
 from skytest.common import log
 
+CONF = conf.CONF
 LOG = log.getLogger()
 
-NOVA_API_VERSION = "2.37"
-nova_extensions = [ext for ext in
-                   nova_client.discover_extensions(NOVA_API_VERSION)
-                   if ext.name in ("assisted_volume_snapshots",
-                                   "list_extensions",
-                                   "server_external_events")]
+def get_nova_extensions():
+    return [
+        ext for ext in nova_client.discover_extensions(
+            CONF.openstack.nova_api_version
+        ) if ext.name in ("assisted_volume_snapshots",
+                          "list_extensions", "server_external_events")]
 
 
 class OpenstackClient(object):
@@ -38,8 +40,9 @@ class OpenstackClient(object):
         self.keystone = client.Client(session=self.session)
         self.neutron = neutron_client.Client(session=self.session,
                                              region_name=region_name)
-        self.nova = nova_client.Client(NOVA_API_VERSION, session=self.session,
-                                       extensions=nova_extensions,
+        self.nova = nova_client.Client(CONF.openstack.nova_api_version,
+                                       session=self.session,
+                                       extensions=get_nova_extensions(),
                                        region_name=region_name)
         self.glance = glanceclient.Client('2', session=self.session,
                                           region_name=region_name)

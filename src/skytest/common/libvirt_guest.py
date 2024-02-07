@@ -98,7 +98,7 @@ class LibvirtGuest(object):
             {'execute': 'guest-exec-status', 'arguments': {'pid': pid}})
 
     @retry(exceptions=libvirt.libvirtError, tries=60*6, delay=5)
-    def guest_exec(self, cmd, wait_exists=True, timeout=60):
+    def guest_exec(self, cmd, wait_exists=True, timeout=60) -> (str|int):
         exec_cmd = self._get_agent_exec_cmd(cmd)
         result = libvirt_qemu.qemuAgentCommand(self.domain, exec_cmd,
                                                timeout, 0)
@@ -151,7 +151,7 @@ class LibvirtGuest(object):
         return f'inet {ipaddress}/' in self.ip_a()
 
     def hostname(self) -> str:
-        return self.guest_exec(['/usr/bin/hostname'])
+        return self.guest_exec(['/usr/bin/hostname']).strip()
 
     def whereis_cmd(self, cmd):
         result = self.guest_exec(['/usr/bin/whereis', cmd])
