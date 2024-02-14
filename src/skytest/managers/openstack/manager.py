@@ -1,8 +1,7 @@
 from concurrent import futures
+import functools
 import random
 import subprocess
-import uuid
-import functools
 
 import prettytable
 
@@ -312,8 +311,9 @@ class OpenstackManager:
             }]
         else:
             image = image_id
-        server = self.client.nova.servers.create(name, image, flavor, nics=nics,
-                                                 block_device_mapping_v2=bdm_v2,
+        server = self.client.nova.servers.create(
+            name, image, flavor, nics=nics,
+            block_device_mapping_v2=bdm_v2,
             availability_zone=CONF.openstack.boot_az)
         LOG.info('booting with {}', 'bdm' if bdm_v2 else 'image',
                  ecs=server.id)

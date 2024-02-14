@@ -9,7 +9,8 @@ from skytest.common import exceptions
 class OpenstackConf(cfg2.OptionGroup):
     auth_username = cfg2.Option('auth_username')
     auth_url = cfg2.Option('auth_url')
-    auth_user_domain_name = cfg2.Option('auth_user_domain_name', default='Default')
+    auth_user_domain_name = cfg2.Option('auth_user_domain_name',
+                                        default='Default')
     auth_password = cfg2.Option('auth_password')
     auth_project_name = cfg2.Option('auth_project_name')
     auth_project_domain_name = cfg2.Option('auth_project_domain_name',

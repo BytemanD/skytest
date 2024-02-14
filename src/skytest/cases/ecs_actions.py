@@ -18,6 +18,7 @@ def init():
 
     FLAVRS = utils.CircularQueue(CONF.openstack.flavors)
 
+
 class EcsCreateTest(base.EcsActionTestBase):
 
     def start(self):

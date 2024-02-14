@@ -69,7 +69,7 @@ class OpenstackClient(object):
         auth_url = CONF.openstack.auth_url
         auth_kwargs = {}
         for auth_arg in cls.V3_AUTH_KWARGS:
-            auth_option =  f'auth_{auth_arg}'
+            auth_option = f'auth_{auth_arg}'
             auth_value = getattr(CONF.openstack, f'auth_{auth_arg}')
             if not auth_value:
                 raise exceptions.InvalidConfig(

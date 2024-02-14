@@ -159,6 +159,7 @@ class BaseManager(metaclass=abc.ABCMeta):
     def get_ecs_flavor_id(self, ecs: model.ECS):
         pass
 
+
 def get_manager():
     if CONF.manager == 'openstack':
         return OpenstackManager()

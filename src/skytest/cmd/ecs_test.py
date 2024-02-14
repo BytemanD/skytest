@@ -16,7 +16,8 @@ def main():
 
 
 @main.command()
-@click.option('-c', '--conf', 'conf_file', default=os.getenv('SKYTEST_CONF_FILE'),
+@click.option('-c', '--conf', 'conf_file',
+              default=os.getenv('SKYTEST_CONF_FILE'),
               help='Defaults to env["SKYTEST_CONF_FILE"]')
 @click.option('--log-file')
 @click.option('-v', '--verbose', multiple=True, is_flag=True)
