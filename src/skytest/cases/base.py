@@ -248,3 +248,6 @@ class EcsActionTestBase(object):
         if hostname != name:
             raise exceptions.EcsNameNotMatch(self.ecs.id, name)
         LOG.info('guest hostname is "{}"', hostname, ecs=self.ecs.id)
+
+    def get_ecs_flavor_id(self) -> str:
+        return self.manager.get_ecs_flavor_id(self.ecs)

@@ -3,16 +3,21 @@ import pathlib
 
 from easy2use.globals import cfg2
 
-from skytest.common import log
 from skytest.common import exceptions
-
-LOG = log.getLogger()
 
 
 class OpenstackConf(cfg2.OptionGroup):
-    env = cfg2.Option('env')
+    auth_username = cfg2.Option('auth_username')
+    auth_url = cfg2.Option('auth_url')
+    auth_user_domain_name = cfg2.Option('auth_user_domain_name', default='Default')
+    auth_password = cfg2.Option('auth_password')
+    auth_project_name = cfg2.Option('auth_project_name')
+    auth_project_domain_name = cfg2.Option('auth_project_domain_name',
+                                           default='Default')
+    auth_region_name = cfg2.Option('auth_region_name', default='RegionOne')
+
     image_id = cfg2.Option('image_id')
-    flavor = cfg2.Option('flavor')
+    flavors = cfg2.ListOption('flavors')
     net_ids = cfg2.ListOption('net_ids')
     attach_net = cfg2.Option('attach_net')
     boot_from_volume = cfg2.BoolOption('boot_from_volume', default=False)
@@ -44,7 +49,7 @@ class ECSTestConf(cfg2.OptionGroup):
 
     mode = cfg2.Option('mode', default='coroutine')
     random_order = cfg2.BoolOption('random_order', default=False)
-    scenarios = cfg2.ListOption('scenarios', default=['create'])
+    actions = cfg2.ListOption('actions', default=['create'])
 
     attach_interface_nums_each_time = cfg2.IntOption(
         'attach_interface_nums_each_time', default=1)
@@ -91,10 +96,6 @@ class AppConf(cfg2.TomlConfig):
 
 
 def load_configs(conf_file=None):
-    if not conf_file:
-        conf_file = os.getenv('SKYTEST_CONF_FILE')
-        if conf_file:
-            LOG.debug('read from env, use config file {}', conf_file)
     conf_files = [conf_file] if conf_file else [
         '/etc/skytest/skytest.toml',
         pathlib.Path('etc', 'skytest.toml').absolute()
@@ -102,7 +103,6 @@ def load_configs(conf_file=None):
     for file in conf_files:
         if not os.path.exists(file):
             continue
-        LOG.debug('Load config file from {}', file)
         CONF.load(file)
         break
     else:

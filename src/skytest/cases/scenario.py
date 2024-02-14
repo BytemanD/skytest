@@ -32,13 +32,12 @@ class ECSScenarioTest(object):
         return self._manager
 
     def _check_flavor(self):
-        if not CONF.openstack.flavor:
-            raise exceptions.InvalidConfig(reason='flavor is not set')
+        if not CONF.openstack.flavors:
+            raise exceptions.InvalidConfig(reason='flavors is not set')
         try:
-            self.manager.get_flavor(CONF.openstack.flavor)
-        except Exception:
-            raise exceptions.InvalidFlavor(
-                reason=f'get flavor {CONF.openstack.flavor} failed')
+            self.manager.get_flavor(CONF.openstack.flavors[0])
+        except Exception as e:
+            raise exceptions.InvalidFlavor(reason=e)
 
     def _check_image(self):
         """Make sure configed actions are all exists"""
@@ -47,9 +46,8 @@ class ECSScenarioTest(object):
 
         try:
             self.manager.get_image(CONF.openstack.image_id)
-        except Exception:
-            raise exceptions.InvalidImage(
-                reason=f'get image {CONF.openstack.image_id} failed')
+        except Exception as e:
+            raise exceptions.InvalidImage(reason=e)
 
     def _check_services(self):
         az, host = None, None
@@ -68,7 +66,7 @@ class ECSScenarioTest(object):
                 raise exceptions.NotAvailableServices(
                     reason=f'no available compute service for az "{az}"')
         elif len(services) == 1:
-            if 'migrate' in CONF.ecs_test.scenarios:
+            if 'migrate' in CONF.ecs_test.actions:
                 raise exceptions.NotAvailableServices(
                     reason='migrate test require available services >= 2')
         else:
@@ -78,7 +76,6 @@ class ECSScenarioTest(object):
         LOG.info('==== Check before test ====')
 
         if not self._manager:
-            utils.load_env(CONF.openstack.env)
             self._manager = base_manager.get_manager()
 
         self._check_flavor()
@@ -176,13 +173,15 @@ def test_with_process():
 
 
 def test_without_process():
+    ecs_actions.init()
     ng = 0
     for _ in range(CONF.ecs_test.total):
         test_task = ECSScenarioTest(parse_test_actions())
         try:
             test_task.before_run()
             test_task.run(pre_check=False)
-        except (exceptions.EcsTestFailed,
+        except (exceptions.InvalidConfig, exceptions.InvalidFlavor,
+                exceptions.InvalidImage, exceptions.EcsTestFailed,
                 exceptions.VMIsError) as e:
             LOG.error('test failed: {}', e)
             ng += 1
@@ -195,11 +194,12 @@ def test_without_process():
 
 
 def parse_test_actions() -> list:
+    ecs_actions.init()
     if CONF.ecs_test.random_order:
-        test_scenarios = random.sample(CONF.ecs_test.scenarios,
-                                       len(CONF.ecs_test.scenarios))
+        test_scenarios = random.sample(CONF.ecs_test.actions,
+                                       len(CONF.ecs_test.actions))
     else:
-        test_scenarios = CONF.ecs_test.scenarios
+        test_scenarios = CONF.ecs_test.actions
 
     actions = []
     for scenario in test_scenarios:

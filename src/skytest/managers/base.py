@@ -74,9 +74,13 @@ class BaseManager(metaclass=abc.ABCMeta):
     def report_ecs_actions(self, ecs: model.ECS):
         pass
 
-    # @abc.abstractmethod
-    # def rebuild_ecs(self, ecs):
-    #     pass
+    @abc.abstractmethod
+    def rebuild_ecs(self, ecs):
+        pass
+
+    @abc.abstractmethod
+    def resize_ecs(self, ecs: model.ECS, flavor):
+        pass
 
     def refresh_ecs(self, ecs: model.ECS):
         pass
@@ -125,11 +129,19 @@ class BaseManager(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def rename_ecs(self, ecs: model.ECS, name):
+        pass
+
+    @abc.abstractmethod
     def extend_volume(self, volume: model.Volume, new_size):
         pass
 
     @abc.abstractmethod
     def get_flavor(self, id_or_name):
+        pass
+
+    @abc.abstractmethod
+    def get_flavor_id(self, flavor):
         pass
 
     @abc.abstractmethod
@@ -140,13 +152,12 @@ class BaseManager(metaclass=abc.ABCMeta):
     def get_available_services(host=None, zone=None, binary=None):
         pass
 
-    @abc.abstractmethod
-    def rename_ecs(self, ecs: model.ECS, name):
-        pass
-
     def must_support_action(self, ecs: model.ECS, action):
         pass
 
+    @abc.abstractmethod
+    def get_ecs_flavor_id(self, ecs: model.ECS):
+        pass
 
 def get_manager():
     if CONF.manager == 'openstack':

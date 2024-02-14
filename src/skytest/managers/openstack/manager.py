@@ -260,18 +260,11 @@ class OpenstackManager:
         if not flavor:
             raise exceptions.InvalidConfig(reason='flavor is none')
         flavor_id = None
-
-        try:
-            uuid.UUID(flavor)
-            return flavor
-        except (TypeError, ValueError):
-            if flavor not in self.flavors_cached:
-                flavor_obj = self.client.nova.flavors.find(name=flavor)
-                flavor_id = flavor_obj.id
-                self.flavors_cached[flavor] = flavor_id
-
-            LOG.debug('the id of flavor {} is: {}', flavor, flavor_id)
-            return self.flavors_cached[flavor]
+        flavor_obj = self.get_flavor(flavor)
+        flavor_id = flavor_obj.id
+        self.flavors_cached[flavor] = flavor_id
+        LOG.debug('the id of flavor {} is: {}', flavor, flavor_id)
+        return self.flavors_cached[flavor]
 
     @wrap_exceptions
     def get_flavor(self, id_or_name):
@@ -299,7 +292,7 @@ class OpenstackManager:
             progress=getattr(server, 'progress', None),)
 
     @wrap_exceptions
-    def create_ecs(self, name=None) -> model.ECS:
+    def create_ecs(self, flavor, name=None) -> model.ECS:
         if not name:
             name = utils.generate_name(
                 CONF.openstack.boot_from_volume and 'vol-vm' or 'img-vm')
@@ -319,9 +312,8 @@ class OpenstackManager:
             }]
         else:
             image = image_id
-        server = self.client.nova.servers.create(
-            name, image, self.get_flavor_id(CONF.openstack.flavor), nics=nics,
-            block_device_mapping_v2=bdm_v2,
+        server = self.client.nova.servers.create(name, image, flavor, nics=nics,
+                                                 block_device_mapping_v2=bdm_v2,
             availability_zone=CONF.openstack.boot_az)
         LOG.info('booting with {}', 'bdm' if bdm_v2 else 'image',
                  ecs=server.id)
@@ -472,9 +464,25 @@ class OpenstackManager:
     def extend_volume(self, volume: model.Volume, new_size):
         self.client.extend_volume(volume.id, new_size)
 
+    def rebuild_ecs(self, ecs: model.ECS, image=None, password=None):
+        if not image:
+            server = self.client.nova.servers.get(ecs.id)
+            image = server.image.get('id')
+        LOG.debug('rebuild with image {}', image, ecs=ecs.id)
+        self.client.nova.servers.rebuild(ecs.id, image, password=password)
+
+    def resize_ecs(self, ecs: model.ECS, flavor):
+        self.client.nova.servers.resize(ecs.id, flavor)
+
     @wrap_exceptions
     def rename_ecs(self, ecs: model.ECS, name: str):
         self.client.nova.servers._action('rename', ecs.id, {'name': name})
+
+    @wrap_exceptions
+    def get_ecs_flavor_id(self, ecs: model.ECS):
+        server = self.client.nova.servers.get(ecs.id)
+        flavor = self.get_flavor(server.flavor['id'])
+        return flavor.id
 
     def must_support_action(self, ecs: model.ECS, action):
         if action == 'rename':

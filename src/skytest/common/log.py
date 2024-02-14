@@ -26,7 +26,7 @@ def basic_config(verbose_count=0, log_file=None):
         "colorize": True,
         "level": "DEBUG" if verbose_count >= 1 else "INFO",
     }])
-    if verbose_count >= 2:
+    if verbose_count and verbose_count >= 2:
         root_loger.basic_config(
             level=logging.DEBUG,
             filename=log_file and os.path.abspath(log_file))

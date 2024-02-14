@@ -1,5 +1,6 @@
 import click
 import sys
+import os
 
 from skytest.common import log
 from skytest.common import conf
@@ -15,27 +16,27 @@ def main():
 
 
 @main.command()
-@click.option('-c', '--conf', 'conf_file',
-              help='Defaults to env[SKYTEST_CONF_FILE]')
+@click.option('-c', '--conf', 'conf_file', default=os.getenv('SKYTEST_CONF_FILE'),
+              help='Defaults to env["SKYTEST_CONF_FILE"]')
 @click.option('--log-file')
-@click.option('-v', '--verbose', type=bool, multiple='count', is_flag=True)
+@click.option('-v', '--verbose', multiple=True, is_flag=True)
 def action_test(verbose, log_file, conf_file):
     """ECS scenario test
     """
     global LOG
 
-    log.basic_config(verbose_count=len(verbose), log_file=log_file)
-    LOG = log.getLogger()
-
     try:
         conf.load_configs(conf_file=conf_file)
     except exceptions.ConfileNotExists as e:
-        LOG.error('load config failed, {}', e)
+        print(f'ERROR: load config failed, {e}')
         sys.exit(1)
+    log.basic_config(verbose_count=max(len(verbose), CONF.debug and 2 or 0),
+                     log_file=log_file)
+    LOG = log.getLogger()
 
-    LOG.info('worker: {}, total: {}, scenarios: {}',
+    LOG.info('worker: {}, total: {}, actions: {}',
              CONF.ecs_test.worker, CONF.ecs_test.total,
-             CONF.ecs_test.scenarios)
+             CONF.ecs_test.actions)
 
     try:
         if CONF.ecs_test.worker == 1:

@@ -3,16 +3,25 @@ import time
 from skytest.common import conf
 from skytest.common import exceptions
 from skytest.common import log
+from skytest.common import utils
+
 from . import base
 
 CONF = conf.CONF
 LOG = log.getLogger()
 
+FLAVRS = None
+
+
+def init():
+    global FLAVRS
+
+    FLAVRS = utils.CircularQueue(CONF.openstack.flavors)
 
 class EcsCreateTest(base.EcsActionTestBase):
 
     def start(self):
-        self.ecs = self.manager.create_ecs()
+        self.ecs = self.manager.create_ecs(FLAVRS.current())
         try:
             self.wait_for_ecs_created()
         except Exception as e:
@@ -302,6 +311,36 @@ class EcsExtendVolumeTest(base.EcsActionTestBase):
         self.guest_block_size_must_be(device_name, f'{new_size}G')
 
 
+class EcsRebuildTest(base.EcsActionTestBase):
+
+    def start(self):
+        self.manager.rebuild_ecs(self.ecs)
+        self.wait_for_ecs_task_finished()
+        if not self.ecs.is_active():
+            raise exceptions.EcsTestFailed(ecs=self.ecs.id, action='rebuild',
+                                           reason='ecs is not active')
+
+
+class EcsResizeTest(base.EcsActionTestBase):
+
+    def start(self):
+        if FLAVRS.length() <= 1:
+            raise exceptions.SkipActionException('the num of flavors <= 1')
+        flavor_id = self.manager.get_flavor_id(next(FLAVRS))
+        LOG.info('resize flavor to {}', flavor_id, ecs=self.ecs.id)
+        self.manager.resize_ecs(self.ecs, flavor_id)
+        self.wait_for_ecs_task_finished()
+        if not self.ecs.is_active():
+            raise exceptions.EcsTestFailed(ecs=self.ecs.id, action='resize',
+                                           reason='ecs is not active')
+        ecs_flavor_id = self.get_ecs_flavor_id()
+        LOG.info('ecs flavor id is {}', ecs_flavor_id, ecs=self.ecs.id)
+        if ecs_flavor_id != flavor_id:
+            raise exceptions.EcsTestFailed(
+                ecs=self.ecs.id, action='resize',
+                reason=f'ecs flavor is not {flavor_id}')
+
+
 VM_TEST_SCENARIOS = {
     'create': EcsCreateTest,
     'stop': EcsStopTest,
@@ -315,5 +354,7 @@ VM_TEST_SCENARIOS = {
     'extend_volume': EcsExtendVolumeTest,
     'live_migrate': EcsLiveMigrateTest,
     'migrate': EcsMigrateTest,
-    'rename': EcsRenameTest
+    'rename': EcsRenameTest,
+    'rebuild': EcsRebuildTest,
+    'resize': EcsResizeTest
 }

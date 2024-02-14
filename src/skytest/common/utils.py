@@ -111,3 +111,25 @@ def count_repeat_words(words: list) -> list:
         else:
             repeat_list.append({'word': word, 'count': 1})
     return repeat_list
+
+
+class CircularQueue(object):
+
+    def __init__(self, items: list, current=None) -> None:
+        self.items = items
+        self.index = self.items.index(current) if current else 0
+
+    def length(self):
+        return len(self.items)
+
+    def __next__(self, ):
+        if not self.items:
+            return None
+        if self.index >= len(self.items) - 1:
+            self.index = 0
+        else:
+            self.index += 1
+        return self.current()
+
+    def current(self):
+        return self.items[self.index]

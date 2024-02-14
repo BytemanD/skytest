@@ -16,6 +16,7 @@ from easy2use.common import retry
 
 from skytest.common import conf
 from skytest.common import log
+from skytest.common import exceptions
 
 CONF = conf.CONF
 LOG = log.getLogger()
@@ -64,8 +65,21 @@ class OpenstackClient(object):
         return auth_url, auth_kwargs
 
     @classmethod
+    def get_auth_info_from_conf(cls):
+        auth_url = CONF.openstack.auth_url
+        auth_kwargs = {}
+        for auth_arg in cls.V3_AUTH_KWARGS:
+            auth_option =  f'auth_{auth_arg}'
+            auth_value = getattr(CONF.openstack, f'auth_{auth_arg}')
+            if not auth_value:
+                raise exceptions.InvalidConfig(
+                    reason=f'auth option {auth_option} is required')
+            auth_kwargs[auth_arg] = auth_value
+        return auth_url, auth_kwargs
+
+    @classmethod
     def create_instance(cls):
-        auth_url, auth_kwargs = cls.get_auth_info_from_env()
+        auth_url, auth_kwargs = cls.get_auth_info_from_conf()
         # LOG.debug('auth info: {}', auth_kwargs)
         return OpenstackClient(auth_url, **auth_kwargs)
 

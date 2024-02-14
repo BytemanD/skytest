@@ -25,9 +25,10 @@ python >= 3.6.0
 
 ## 运行
 
-> 源码
+1. 源码
 
-```
-export PYTHONPATH=./
-python skytest/cmd/vm_test.py
-```
+    ```
+    export PYTHONPATH=./
+    cd src
+    pdm run skytest/cmd/ecs_test.py action-test
+    ```
