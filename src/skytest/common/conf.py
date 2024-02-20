@@ -49,8 +49,8 @@ class ECSTestConf(cfg2.OptionGroup):
     migrate_wait_timeout = cfg2.IntOption('migrate_wait_timeout', default=60)
     cleanup_error_vms = cfg2.BoolOption('cleanup_error_vms', default=True)
 
-    mode = cfg2.Option('mode', default='coroutine')
-    random_order = cfg2.BoolOption('random_order', default=False)
+    random_actions = cfg2.BoolOption('random_actions', default=False)
+    actions = cfg2.ListOption('actions', default=['create'])
     actions = cfg2.ListOption('actions', default=['create'])
 
     attach_interface_nums_each_time = cfg2.IntOption(

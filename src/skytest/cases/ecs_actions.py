@@ -143,6 +143,7 @@ class EcsAttachInterfaceLoopTest(base.EcsActionTestBase):
         for port_id in self.attached_ports:
             LOG.info('detaching interface {}', port_id, ecs=self.ecs.id)
             self.manager.detach_interface(self.ecs, port_id)
+        self.wait_for_ecs_task_finished()
 
 
 class EcsAttachVolumeTest(base.EcsActionTestBase):

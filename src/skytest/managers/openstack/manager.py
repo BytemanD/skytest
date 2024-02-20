@@ -492,7 +492,7 @@ class OpenstackManager:
     @wrap_exceptions
     def get_ecs_flavor_id(self, ecs: model.ECS):
         server = self.client.nova.servers.get(ecs.id)
-        flavor = self.get_flavor(server.flavor['id'])
+        flavor = self.get_flavor(server.flavor['original_name'])
         return flavor.id
 
     def must_support_action(self, ecs: model.ECS, action):

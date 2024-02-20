@@ -66,7 +66,7 @@ class ECSScenarioTest(object):
                 raise exceptions.NotAvailableServices(
                     reason=f'no available compute service for az "{az}"')
         elif len(services) == 1:
-            if 'migrate' in CONF.ecs_test.actions:
+            if 'migrate' in self.actions:
                 raise exceptions.NotAvailableServices(
                     reason='migrate test require available services >= 2')
         else:
@@ -113,6 +113,7 @@ class ECSScenarioTest(object):
             except exceptions.EcsTestFailed:
                 raise
             except Exception as e:
+                LOG.exception(e)
                 raise exceptions.EcsTestFailed(
                     ecs=self.ecs and self.ecs.id or '-',
                     action=action, reason=f'{str(e)}')
@@ -134,13 +135,9 @@ class ECSScenarioTest(object):
     def run(self, pre_check=True):
         try:
             self._test_actions(pre_check=pre_check)
-        except (exceptions.EcsTestFailed):
+        except exceptions.EcsTestFailed:
             self._cleanup()
             raise
-        except Exception as e:
-            self._cleanup()
-            raise exceptions.EcsTestFailed(ecs=self.ecs and self.ecs.id,
-                                           action='test', reason=e)
         else:
             LOG.success('==== test success ====', ecs=self.ecs.id)
         finally:
@@ -201,22 +198,25 @@ def test_without_process():
 
 def parse_test_actions() -> list:
     ecs_actions.init()
-    if CONF.ecs_test.random_order:
-        test_scenarios = random.sample(CONF.ecs_test.actions,
-                                       len(CONF.ecs_test.actions))
+    if CONF.ecs_test.random_actions:
+        test_actions = random.sample(CONF.ecs_test.actions,
+                                     len(CONF.ecs_test.actions))
+        if 'create' in test_actions and test_actions.index('create') != 0:
+            test_actions.remove('create')
+            test_actions.insert(0, 'create')
     else:
-        test_scenarios = CONF.ecs_test.actions
+        test_actions = CONF.ecs_test.actions
 
     actions = []
-    for scenario in test_scenarios:
-        if ':' not in scenario:
-            action, nums = scenario, 1
+    for action_num in test_actions:
+        if ':' not in action_num:
+            action, nums = action_num, 1
         else:
-            action, nums = scenario.split(":")
+            action, nums = action_num.split(":")
         if action not in VM_TEST_SCENARIOS:
             raise exceptions.InvalidScenario(action)
         if action == 'create' and int(nums) > 1:
-            raise exceptions.InvalidScenario(scenario)
+            raise exceptions.InvalidScenario(action_num)
         actions.extend([action] * int(nums))
 
     if not actions:
