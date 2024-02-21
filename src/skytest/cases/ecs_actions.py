@@ -23,14 +23,8 @@ class EcsCreateTest(base.EcsActionTestBase):
 
     def start(self):
         self.ecs = self.manager.create_ecs(FLAVRS.current())
-        try:
-            self.wait_for_ecs_created()
-        except Exception as e:
-            LOG.exception(e)
-            raise exceptions.EcsTestFailed(
-                ecs=self.ecs.id, action='create',
-                reason=f'{e}')
-        LOG.info('ecs status is {}', self.ecs.status, ecs=self.ecs.id)
+        self.wait_for_ecs_task_finished()
+        self.assert_ecs_is_active()
         if CONF.ecs_test.enable_varify_console_log:
             LOG.info('varify console log matched', ecs=self.ecs.id)
             self.ecs_must_have_ok_console_log()
@@ -51,10 +45,7 @@ class EcsStopTest(base.EcsActionTestBase):
         self.manager.stop_ecs(self.ecs)
         LOG.info('stopping', ecs=self.ecs.id)
         self.wait_for_ecs_task_finished()
-        self.ecs = self.manager.get_ecs(self.ecs)
-        LOG.debug('status is {}', self.ecs.status, ecs=self.ecs.id)
-        if not self.ecs.is_stopped():
-            raise exceptions.EcsStatusNotMatch(self.ecs.id, 'STOPPED')
+        self.assert_ecs_is_stopped()
         LOG.info('stop success', ecs=self.ecs.id)
 
 
@@ -67,9 +58,7 @@ class EcsStartTest(base.EcsActionTestBase):
         LOG.info('starting', ecs=self.ecs.id)
         self.wait_for_ecs_task_finished()
         self.ecs = self.manager.get_ecs(self.ecs)
-        LOG.debug('status is {}', self.ecs.status, ecs=self.ecs.id)
-        if not self.ecs.is_active():
-            raise exceptions.EcsStatusNotMatch(self.ecs.id, 'ACTIVE')
+        self.assert_ecs_is_active()
         LOG.info('start success', ecs=self.ecs.id)
 
 
@@ -82,8 +71,7 @@ class EcsRebootTest(base.EcsActionTestBase):
         self.manager.reboot_ecs(self.ecs)
         LOG.info('rebooting', ecs=self.ecs.id)
         self.wait_for_ecs_task_finished()
-        if not self.ecs.is_active():
-            raise exceptions.EcsStatusNotMatch(self.ecs.id, 'ACTIVE')
+        self.assert_ecs_is_active()
         LOG.info('reboot success', ecs=self.ecs.id)
 
 
@@ -92,6 +80,7 @@ class EcsHardRebootTest(base.EcsActionTestBase):
         self.manager.hard_reboot_ecs(self.ecs)
         LOG.info('hard rebooting', ecs=self.ecs.id)
         self.wait_for_ecs_task_finished()
+        self.assert_ecs_is_active()
         LOG.info('hard reboot success', ecs=self.ecs.id)
 
 
@@ -105,17 +94,12 @@ class EcsAttachInterfaceTest(base.EcsActionTestBase):
         LOG.info('attaching interface', ecs=self.ecs.id)
         vif = self.manager.attach_net(self.ecs, CONF.openstack.attach_net)
         self.ecs = self.manager.get_ecs(self.ecs.id)
-        if self.ecs.is_error():
-            raise exceptions.EcsIsError(self.ecs.id)
+        self.assert_ecs_is_not_error()
         self.attached_vifs.append(vif)
 
         vifs = self.manager.get_ecs_interfaces(self.ecs)
         LOG.debug('ecs interfaces: {}', vifs, ecs=self.ecs.id)
-        for vif_id in self.attached_vifs:
-            if vif_id not in vifs:
-                raise exceptions.EcsTestFailed(
-                    ecs=self.ecs.id, action='attach_interface',
-                    reason=f'ecs does not have interface {vif}')
+        self.assert_ecs_has_interfaces(self.attached_vifs)
         self.guest_must_have_all_ipaddress()
         LOG.info('test attach interface success', ecs=self.ecs.id)
 
@@ -159,17 +143,12 @@ class EcsAttachVolumeTest(base.EcsActionTestBase):
         LOG.info('creating volumes', ecs=self.ecs.id)
         self.wait_volume_created(volume)
 
-        LOG.info('attaching volume', ecs=self.ecs.id)
         self.manager.attach_volume(self.ecs, volume.id)
         LOG.info('attaching volume {}', volume.id, ecs=self.ecs.id)
         self.wait_for_ecs_task_finished()
-        volume = self.manager.get_volume(volume.id)
-        LOG.info('volume {} status: {}', volume.id, volume.status,
-                 ecs=self.ecs.id)
-        if not volume.is_inuse():
-            raise exceptions.EcsTestFailed(
-                ecs=self.ecs.id, action='attach_volume',
-                reason=f'volume {volume.id} not in use')
+        volume = self.wait_volume_is_inuse(volume)
+
+        self.assert_volume_is_inuse(volume)
         self.attached_volumes.append(volume)
         self.guest_must_have_all_block()
         LOG.info('attach volumes success', ecs=self.ecs.id)
@@ -225,12 +204,10 @@ class EcsLiveMigrateTest(base.EcsActionTestBase):
         LOG.info('source host is {}', src_host, ecs=self.ecs.id)
         self.manager.live_migrate_ecs(self.ecs)
         LOG.info('live migrating ...', ecs=self.ecs.id)
+
         self.wait_for_ecs_task_finished(show_progress=True)
-        if not self.ecs.is_error():
-            raise exceptions.EcsIsError(self.ecs.id)
-        LOG.info('host is {}', self.ecs.host, ecs=self.ecs.id)
-        if self.ecs.host == src_host:
-            raise exceptions.EcsNotMigrated(self.ecs.id)
+        self.assert_ecs_is_not_error()
+        self.assert_ecs_host_is_not(src_host)
         self.wait_ecs_qga_connected()
 
 
@@ -241,12 +218,10 @@ class EcsMigrateTest(base.EcsActionTestBase):
         LOG.info('source host is {}', src_host, ecs=self.ecs.id)
         self.manager.migrate_ecs(self.ecs)
         LOG.info('migrating ...', ecs=self.ecs.id)
+
         self.wait_for_ecs_task_finished(show_progress=True)
-        if not self.ecs.is_error():
-            raise exceptions.EcsIsError(self.ecs.id)
-        LOG.info('host is {}', self.ecs.host, ecs=self.ecs.id)
-        if self.ecs.host == src_host:
-            raise exceptions.EcsNotMigrated(self.ecs.id)
+        self.assert_ecs_is_not_error()
+        self.assert_ecs_host_is_not(src_host)
         self.wait_ecs_qga_connected()
 
 
@@ -258,14 +233,14 @@ class EcsRenameTest(base.EcsActionTestBase):
             raise exceptions.SkipActionException(
                 'enable_guest_qga_command is false')
         src_name = self.ecs.name
-        new_name = f'{self.__class__.__name__}-newName'
+        new_name = f'{self.ecs.name}-newName'.replace(':', '')
         LOG.info('source name is "{}"', src_name, ecs=self.ecs.id)
         self.manager.rename_ecs(self.ecs, new_name)
         LOG.info('change ecs name to "{}"', new_name, ecs=self.ecs.id)
-        self.ecs = self.manager.get_ecs(self.ecs.id)
-        if self.ecs.name != new_name:
-            raise exceptions.EcsNameNotMatch(self.ecs.id, new_name)
-        self.ecs_must_have_name(new_name)
+
+        self.refresh_ecs()
+        self.assert_ecs_name_is(new_name)
+        self.ecs_guest_must_have_hostname(new_name)
 
 
 class EcsExtendVolumeTest(base.EcsActionTestBase):
@@ -315,14 +290,12 @@ class EcsResizeTest(base.EcsActionTestBase):
         flavor_id = self.manager.get_flavor_id(next(FLAVRS))
         LOG.info('resize flavor to {}', flavor_id, ecs=self.ecs.id)
         self.manager.resize_ecs(self.ecs, flavor_id)
+
         self.wait_for_ecs_task_finished()
-        if not self.ecs.is_active():
-            raise exceptions.EcsTestFailed(ecs=self.ecs.id, action='resize',
-                                           reason='ecs is not active')
+        self.assert_ecs_is_active()
         ecs_flavor_id = self.get_ecs_flavor_id()
         LOG.info('ecs flavor id is {}', ecs_flavor_id, ecs=self.ecs.id)
-        if ecs_flavor_id != flavor_id:
-            raise exceptions.EcsFlavorNotMatch(self.ecs.id, flavor_id)
+        self.assert_ecs_flavor_is(flavor_id)
 
         self.guest_must_have_all_ipaddress()
         self.guest_must_have_all_block()
@@ -334,8 +307,8 @@ class EcsShelveTtest(base.EcsActionTestBase):
         src_host = self.manager.get_host_ip(self.ecs.host)
         self.manager.shelve_ecs(self.ecs)
         self.wait_for_ecs_task_finished()
-        if not self.ecs.is_shelved():
-            raise exceptions.EcsStatusNotMatch(self.ecs.id, 'shelved')
+
+        self.assert_ecs_is_shelved()
         self.wait_ecs_guest_not_exists(host=src_host)
 
     def tear_down(self):
@@ -349,8 +322,7 @@ class EcsUnshelveTtest(base.EcsActionTestBase):
     def start(self):
         self.manager.unshelve_ecs(self.ecs)
         self.wait_for_ecs_task_finished()
-        if not self.ecs.is_active():
-            raise exceptions.EcsStatusNotMatch(self.ecs.id, 'ACTIVE')
+        self.assert_ecs_is_active()
         self.wait_ecs_guest_active()
 
     def tear_down(self):
