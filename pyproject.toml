@@ -18,9 +18,9 @@ dependencies = [
     "python-neutronclient",
     "python-cinderclient",
     "python-keystoneclient",
-    "easy2use @ https://github.com/BytemanD/easy-to-use/releases/download/dev/easy2use-1.0.6.dev12-py3-none-any.whl"
+    "easy2use @ https://github.moeyy.xyz/https://github.com/BytemanD/easy-to-use/releases/download/dev/easy2use-1.0.6.dev12-py3-none-any.whl"
 ]
-requires-python = "==3.10.*"
+requires-python = ">= 3.10"
 readme = "README.md"
 license = {text = "MIT"}
 
