@@ -1,11 +1,11 @@
 import random
+import time
 
 from skytest.common import conf
 from skytest.common import exceptions
 from skytest.common import utils
 from skytest.common import log
 
-# from skytest.common import libvirt_guest
 from skytest.common import model
 from skytest.managers import base as base_manager
 
@@ -24,6 +24,14 @@ class ECSScenarioTest(object):
         self.actions = actions
         self._manager = mgr
         self.ecs: model.ECS = None
+
+        self._actions_interval_range = None
+        if CONF.ecs_test.actions_interval:
+            nums = CONF.ecs_test.actions_interval.split('-')
+            if len(nums) == 1:
+                self._actions_interval_range = (int(nums[0]), int(nums[0]))
+            else:
+                self._actions_interval_range = (int(nums[0]), int(nums[1]))
 
     @property
     def manager(self) -> base_manager.BaseManager:
@@ -87,7 +95,7 @@ class ECSScenarioTest(object):
             self.before_run()
         LOG.info('==== Start ECS action test ====')
         action_count = [
-            f'{ac["word"]} ✖ {ac["count"]}'
+            f'{ac["word"]}({ac["count"]})'
             for ac in utils.count_repeat_words(self.actions)
         ]
         LOG.info('test actions: {}', ' -> '.join(action_count))
@@ -99,7 +107,7 @@ class ECSScenarioTest(object):
             self.ecs = None
 
         jobs: list[base.EcsActionTestBase] = []
-        for action in self.actions:
+        for i, action in enumerate(self.actions):
             LOG.info('== Test {}', action,
                      ecs='{:36}'.format(self.ecs and self.ecs.id or '-'))
             test_cls = ecs_actions.VM_TEST_SCENARIOS.get(action)
@@ -122,9 +130,21 @@ class ECSScenarioTest(object):
                             ecs=(self.ecs and self.ecs.id))
                 jobs.append(job)
 
+            if i < len(self.actions) - 1:
+                interval = self._get_actions_interval()
+                if interval:
+                    LOG.info('sleep {} seconds', interval, ecs=self.ecs.id)
+                    time.sleep(interval)
+
         LOG.info('==== Tear Down ECS action test ====')
         for job in reversed(jobs):
             job.tear_down()
+
+    def _get_actions_interval(self):
+        if not self._actions_interval_range:
+            return None
+        return random.randint(self._actions_interval_range[0],
+                              self._actions_interval_range[1])
 
     def _cleanup(self):
         if not CONF.ecs_test.ecs_id and self.ecs and \
