@@ -3,7 +3,7 @@
 #  1: DEBUG
 #  2: 更多日志
 # verbose = 0
-# debug = false
+
 # log_file = 
 # manager = 'openstack'
 
@@ -17,21 +17,21 @@ auth_project_name = ''
 ##### 镜像ID
 image_id = ''
 ##### 规格ID, 第一个
-flavors = ''
+flavors = []
 
-##### 创建虚拟机使用的网络ID列表
-# net_ids = 
-
-##### 挂载网卡使用的网络ID
-# attach_net =
+##### 创建虚拟机和挂载网卡使用的网络ID列表
+# networks = 
 
 #### 是否使用云盘
 # boot_from_volume = false
 
 ##### 指定AZ创建云主机， 例如 nova:hostA
-# boot_az = false
+# boot_az = ''
 ##### 卷大小
 # volume_size = 50
+
+# nova_api_version = '2.40'
+# connect_retries = 1
 
 [ecs_test]
 ##### 总的任务数和并发任务数

@@ -276,12 +276,6 @@ class OpenstackManager:
     def get_image(self, id_or_name):
         return self.client.glance.images.get(id_or_name)
 
-    @staticmethod
-    def _get_nics():
-        return [
-            {'net-id': net_id} for net_id in CONF.openstack.net_ids
-        ] if CONF.openstack.net_ids else 'none'
-
     def _parse_server_to_ecs(self, server) -> model.ECS:
         return model.ECS(
             id=server.id, name=server.name,
@@ -291,13 +285,15 @@ class OpenstackManager:
             progress=getattr(server, 'progress', None),)
 
     @wrap_exceptions
-    def create_ecs(self, flavor, name=None) -> model.ECS:
+    def create_ecs(self, flavor, name=None, networks=None) -> model.ECS:
         if not name:
             name = utils.generate_name(
                 CONF.openstack.boot_from_volume and 'vol-vm' or 'img-vm')
 
         image_id = CONF.openstack.image_id
-        nics = self._get_nics()
+        nics = [
+            {'net-id': net_id} for net_id in networks
+        ] if networks else 'none'
         if not name:
             name = utils.generate_name(
                 CONF.openstack.boot_from_volume and 'vol-vm' or 'img-vm')

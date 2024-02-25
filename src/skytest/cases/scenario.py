@@ -179,6 +179,7 @@ def do_test_vm():
 
 
 def test_with_process():
+    ecs_actions.init()
     try:
         test_checker = ECSScenarioTest(parse_test_actions())
         test_checker.before_run()
@@ -220,7 +221,6 @@ def test_without_process():
 
 
 def parse_test_actions() -> list:
-    ecs_actions.init()
     if CONF.ecs_test.random_actions:
         test_actions = random.sample(CONF.ecs_test.actions,
                                      len(CONF.ecs_test.actions))

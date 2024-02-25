@@ -6,6 +6,7 @@ from skytest.common import log
 from skytest.common import conf
 from skytest.common import exceptions
 from skytest.cases import scenario
+from skytest.cases import ecs_actions
 
 CONF = conf.CONF
 

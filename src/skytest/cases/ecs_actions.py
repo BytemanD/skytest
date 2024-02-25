@@ -11,18 +11,23 @@ CONF = conf.CONF
 LOG = log.getLogger()
 
 FLAVRS = None
+NETWORKS = None
 
 
 def init():
-    global FLAVRS
+    global FLAVRS, NETWORKS
 
     FLAVRS = utils.CircularQueue(CONF.openstack.flavors)
+    NETWORKS = utils.CircularQueue(CONF.openstack.networks)
+    if NETWORKS.is_empty():
+        LOG.warning("networks is empty")
 
 
 class EcsCreateTest(base.EcsActionTestBase):
 
     def start(self):
-        self.ecs = self.manager.create_ecs(FLAVRS.current())
+        net_ids = [NETWORKS.current()] if not NETWORKS.is_empty() else None
+        self.ecs = self.manager.create_ecs(FLAVRS.current(), networks=net_ids)
         self.wait_for_ecs_task_finished()
         self.assert_ecs_is_active()
         if CONF.ecs_test.enable_varify_console_log:
@@ -91,8 +96,10 @@ class EcsAttachInterfaceTest(base.EcsActionTestBase):
         self.attached_vifs = []
 
     def start(self):
+        if NETWORKS.is_empty():
+            raise exceptions.SkipActionException('networks is empty')
         LOG.info('attaching interface', ecs=self.ecs.id)
-        vif = self.manager.attach_net(self.ecs, CONF.openstack.attach_net)
+        vif = self.manager.attach_net(self.ecs, next(NETWORKS))
         self.ecs = self.manager.get_ecs(self.ecs.id)
         self.assert_ecs_is_not_error()
         self.attached_vifs.append(vif)
@@ -116,11 +123,12 @@ class EcsAttachInterfaceLoopTest(base.EcsActionTestBase):
         self.attached_ports = []
 
     def start(self):
+        if NETWORKS.is_empty():
+            raise exceptions.SkipActionException('networks is empty')
         self.attached_ports = []
         for i in range(CONF.ecs_test.attach_interface_nums_each_time):
             LOG.info('attaching interface {}', i + 1, ecs=self.ecs.id)
-            port_id = self.manager.attach_net(self.ecs,
-                                              CONF.openstack.attach_net)
+            port_id = self.manager.attach_net(self.ecs, next(NETWORKS))
             self.attached_ports.append(port_id)
         self.guest_must_have_all_ipaddress()
 

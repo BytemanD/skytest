@@ -121,7 +121,7 @@ def is_uint(value: str):
 class CircularQueue(object):
 
     def __init__(self, items: list, current=None) -> None:
-        self.items = items
+        self.items = items or []
         self.index = self.items.index(current) if current else 0
 
     def length(self):
@@ -138,3 +138,9 @@ class CircularQueue(object):
 
     def current(self):
         return self.items[self.index]
+
+    def __len__(self):
+        return len(self.items)
+
+    def is_empty(self):
+        return self.length() <= 0

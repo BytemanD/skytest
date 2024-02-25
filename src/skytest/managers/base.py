@@ -15,7 +15,8 @@ LOG = log.getLogger()
 class BaseManager(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def create_ecs(self, name=None, timeout=1800, wait=False) -> model.ECS:
+    def create_ecs(self, name=None, timeout=1800, networks=None,
+                   wait=False) -> model.ECS:
         pass
 
     @abc.abstractmethod

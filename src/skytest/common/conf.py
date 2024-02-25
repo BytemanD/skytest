@@ -19,8 +19,8 @@ class OpenstackConf(cfg2.OptionGroup):
 
     image_id = cfg2.Option('image_id')
     flavors = cfg2.ListOption('flavors')
-    net_ids = cfg2.ListOption('net_ids')
-    attach_net = cfg2.Option('attach_net')
+    # TODO: ListOption has bug
+    networks = cfg2.ListOption('networks', default=[])
     boot_from_volume = cfg2.BoolOption('boot_from_volume', default=False)
     volume_size = cfg2.IntOption('volume_size', default=50)
     boot_az = cfg2.Option('boot_az')
@@ -32,7 +32,6 @@ class ECSTestConf(cfg2.OptionGroup):
     ecs_id = cfg2.Option('ecs_id')
     total = cfg2.IntOption('total', default=1)
     worker = cfg2.IntOption('worker', default=1)
-    attach_net = cfg2.BoolOption('attach_net', default=False)
 
     attach_port_nums = cfg2.IntOption('attach_port_nums', default=1)
     attach_port_times = cfg2.IntOption('attach_port_times', default=1)
