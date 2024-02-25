@@ -4,6 +4,7 @@ import json
 import os
 import time
 import pathlib
+import re
 
 from easy2use import date
 from skytest.common import exceptions
@@ -111,6 +112,10 @@ def count_repeat_words(words: list) -> list:
         else:
             repeat_list.append({'word': word, 'count': 1})
     return repeat_list
+
+
+def is_uint(value: str):
+    return re.match(r'[0-9]+', value) is not None
 
 
 class CircularQueue(object):

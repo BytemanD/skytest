@@ -490,6 +490,15 @@ class OpenstackManager:
         self.client.nova.servers.unshelve(ecs.id)
 
     @wrap_exceptions
+    def pause_ecs(self, ecs: model.ECS):
+        self.client.nova.servers.pause(ecs.id)
+
+    @wrap_exceptions
+    def unpause_ecs(self, ecs: model.ECS):
+        self.client.nova.servers.unpause(ecs.id)
+
+
+    @wrap_exceptions
     def get_ecs_flavor_id(self, ecs: model.ECS):
         server = self.client.nova.servers.get(ecs.id)
         flavor = self.get_flavor(server.flavor['original_name'])

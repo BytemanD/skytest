@@ -330,22 +330,64 @@ class EcsUnshelveTtest(base.EcsActionTestBase):
         self.wait_for_ecs_task_finished()
 
 
+class EcsPauseTtest(base.EcsActionTestBase):
+
+    def start(self):
+        self.manager.pause_ecs(self.ecs)
+        self.wait_for_ecs_task_finished()
+
+
+class EcsPauseTest(base.EcsActionTestBase):
+
+    def start(self):
+        self.manager.pause_ecs(self.ecs)
+        self.wait_for_ecs_task_finished()
+
+
+class EcsUnpauseTest(base.EcsActionTestBase):
+
+    def start(self):
+        self.manager.unpause_ecs(self.ecs)
+        self.wait_for_ecs_task_finished()
+
+
+class EcsTogglePause(base.EcsActionTestBase):
+
+    def start(self):
+        self.refresh_ecs()
+        self.start_with_paused = self.ecs.is_paused()
+        self._toggle_pause()
+        self._toggle_pause()
+
+    def _toggle_pause(self):
+        if self.ecs.is_active():
+            self.manager.pause_ecs(self.ecs)
+            self.wait_for_ecs_task_finished()
+            assert self.ecs.is_paused(), 'ecs is not paused'
+            LOG.info('ecs is paused', ecs=self.ecs.id)
+        elif self.ecs.is_paused():
+            self.manager.unpause_ecs(self.ecs)
+            self.wait_for_ecs_task_finished()
+            assert self.ecs.is_active(), 'ecs is not active'
+            LOG.info('ecs is active', ecs=self.ecs.id)
+        else:
+            raise exceptions.SkipActionException(
+                f'ecs status is {self.ecs.status}')
+
+
 VM_TEST_SCENARIOS = {
     'create': EcsCreateTest,
-    'stop': EcsStopTest,
-    'start': EcsStartTest,
-    'reboot': EcsRebootTest,
+    'stop': EcsStopTest, 'start': EcsStartTest, 'reboot': EcsRebootTest,
     'hard_reboot': EcsHardRebootTest,
     'attach_interface': EcsAttachInterfaceTest,
     'attach_interface_loop': EcsAttachInterfaceLoopTest,
     'attach_volume': EcsAttachVolumeTest,
     'attach_volume_loop': EcsAttachVolumeLoopTest,
     'extend_volume': EcsExtendVolumeTest,
-    'live_migrate': EcsLiveMigrateTest,
-    'migrate': EcsMigrateTest,
+    'live_migrate': EcsLiveMigrateTest, 'migrate': EcsMigrateTest,
     'rename': EcsRenameTest,
-    'rebuild': EcsRebuildTest,
-    'resize': EcsResizeTest,
-    'shelve': EcsShelveTtest,
-    'unshelve': EcsUnshelveTtest,
+    'rebuild': EcsRebuildTest, 'resize': EcsResizeTest,
+    'shelve': EcsShelveTtest, 'unshelve': EcsUnshelveTtest,
+    'pause': EcsPauseTest, 'unpause': EcsUnpauseTest,
+    'toggle_pause': EcsTogglePause,
 }

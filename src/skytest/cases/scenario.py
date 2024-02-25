@@ -1,5 +1,6 @@
 import random
 import time
+import re
 
 from skytest.common import conf
 from skytest.common import exceptions
@@ -227,7 +228,7 @@ def parse_test_actions() -> list:
             test_actions.remove('create')
             test_actions.insert(0, 'create')
     else:
-        test_actions = CONF.ecs_test.actions
+        test_actions: list[str] = CONF.ecs_test.actions
 
     actions = []
     for action_num in test_actions:
@@ -235,11 +236,14 @@ def parse_test_actions() -> list:
             action, nums = action_num, 1
         else:
             action, nums = action_num.split(":")
+            if nums and not utils.is_uint(nums):
+                raise exceptions.InvalidConfig(
+                    reason=f"action {action_num} is invalid")
         if action not in VM_TEST_SCENARIOS:
             raise exceptions.InvalidScenario(action)
         if action == 'create' and int(nums) > 1:
             raise exceptions.InvalidScenario(action_num)
-        actions.extend([action] * int(nums))
+        actions.extend([action] * int(nums or 1))
 
     if not actions:
         raise exceptions.InvalidConfig(reason="test action is empty")

@@ -141,6 +141,14 @@ class BaseManager(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def pause_ecs(self, ecs: model.ECS):
+        pass
+
+    @abc.abstractmethod
+    def unpause_ecs(self, ecs: model.ECS):
+        pass
+
+    @abc.abstractmethod
     def extend_volume(self, volume: model.Volume, new_size):
         pass
 
