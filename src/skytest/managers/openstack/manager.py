@@ -168,7 +168,8 @@ class OpenstackManager:
 
     @wrap_exceptions
     def attach_interface(self, ecs: model.ECS, port_id) -> str:
-        vif = self.client.nova.servers.interface_attach(ecs.id, port_id, None)
+        vif = self.client.nova.servers.interface_attach(ecs.id, port_id, None,
+                                                        None)
         return vif.port_id
 
     @wrap_exceptions
@@ -506,3 +507,23 @@ class OpenstackManager:
                 raise exceptions.ActionNotSuppport(
                     'rename', reason='nova api version must >= 2.53')
         return True
+
+    def _parse_port(self, port: dict) -> model.Volume:
+        return model.Port(port.get('id'), port.get('name'),
+                          status=port.get('status'),
+                          host=port.get('binding:host_id'))
+
+    @wrap_exceptions
+    def create_port(self, network_id) -> model.Port:
+        data = {'network_id': network_id, 'name': utils.generate_name('port')}
+        port = self.client.neutron.create_port(body={'port': data})
+        return self._parse_port(port.get('port'))
+
+    @wrap_exceptions
+    def get_port(self, port_id) -> model.Port:
+        port = self.client.neutron.show_port(port_id)
+        return self._parse_port(port.get('port'))
+
+    @wrap_exceptions
+    def delete_port(self, port_id) -> model.Port:
+        return self.client.neutron.delete_port(port_id)

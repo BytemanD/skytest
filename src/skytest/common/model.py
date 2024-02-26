@@ -57,3 +57,14 @@ class VolumeAttachment:
     id: str
     volumeId: str = ''
     device: str = ''
+
+
+@dataclass
+class Port:
+    id: str
+    name: int
+    status: str = ''
+    host: str = ''
+
+    def is_error(self):
+        return self.status.upper() == 'ERROR'

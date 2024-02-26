@@ -50,7 +50,6 @@ class ECSTestConf(cfg2.OptionGroup):
 
     random_actions = cfg2.BoolOption('random_actions', default=False)
     actions = cfg2.ListOption('actions', default=['create'])
-    actions = cfg2.ListOption('actions', default=['create'])
 
     attach_interface_nums_each_time = cfg2.IntOption(
         'attach_interface_nums_each_time', default=1)

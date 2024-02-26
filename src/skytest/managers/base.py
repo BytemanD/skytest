@@ -48,11 +48,11 @@ class BaseManager(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def attach_interface(self, ecs: model.ECS, port_ids):
+    def attach_interface(self, ecs: model.ECS, port_id: str):
         pass
 
     @abc.abstractmethod
-    def attach_net(self, ecs: model.ECS, net_id):
+    def attach_net(self, ecs: model.ECS, net_id: str):
         pass
 
     @abc.abstractmethod
@@ -174,6 +174,18 @@ class BaseManager(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def get_ecs_flavor_id(self, ecs: model.ECS):
+        pass
+
+    @abc.abstractmethod
+    def create_port(self, network_id, name) -> model.Port:
+        pass
+
+    @abc.abstractmethod
+    def get_port(self, port_id) -> model.Port:
+        pass
+
+    @abc.abstractmethod
+    def delete_port(self, port_id):
         pass
 
 

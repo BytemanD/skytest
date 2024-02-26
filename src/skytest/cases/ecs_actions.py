@@ -3,6 +3,7 @@ import time
 from skytest.common import conf
 from skytest.common import exceptions
 from skytest.common import log
+from skytest.common import model
 from skytest.common import utils
 
 from . import base
@@ -93,27 +94,47 @@ class EcsAttachInterfaceTest(base.EcsActionTestBase):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.attached_vifs = []
+        self.tmp_port: model.Port = None
 
     def start(self):
         if NETWORKS.is_empty():
             raise exceptions.SkipActionException('networks is empty')
         LOG.info('attaching interface', ecs=self.ecs.id)
-        vif = self.manager.attach_net(self.ecs, next(NETWORKS))
-        self.ecs = self.manager.get_ecs(self.ecs.id)
+        network_id = next(NETWORKS)
+        LOG.debug('create port with network: {}', network_id, ecs=self.ecs.id)
+        self.tmp_port = self.manager.create_port(network_id)
+        LOG.debug('created port {}', self.tmp_port.id, ecs=self.ecs.id)
+
+        self.manager.attach_interface(self.ecs, self.tmp_port.id)
+        self.wait_for_ecs_task_finished()
         self.assert_ecs_is_not_error()
-        self.attached_vifs.append(vif)
 
         vifs = self.manager.get_ecs_interfaces(self.ecs)
         LOG.debug('ecs interfaces: {}', vifs, ecs=self.ecs.id)
-        self.assert_ecs_has_interfaces(self.attached_vifs)
+        self.assert_ecs_has_interfaces([self.tmp_port.id])
         self.guest_must_have_all_ipaddress()
         LOG.info('test attach interface success', ecs=self.ecs.id)
 
     def tear_down(self):
-        for vif in reversed(self.attached_vifs):
-            LOG.info('detaching interface {}', vif, ecs=self.ecs.id)
-            self.manager.detach_interface(self.ecs, vif)
+        super().tear_down()
+        if not self.tmp_port:
+            return
+        self.tmp_port = self.manager.get_port(self.tmp_port.id)
+        if not self.tmp_port.host:
+            LOG.debug('delete port {}', self.tmp_port.id, ecs=self.ecs.id)
+            self.manager.delete_port(self.tmp_port.id)
+
+
+class EcsDetachInterfaceTest(base.EcsActionTestBase):
+
+    def start(self):
+        interfaces = self.manager.get_ecs_interfaces(self.ecs)
+        if not interfaces:
+            raise exceptions.SkipActionException('ecs interface is empty')
+        for port_id in reversed(interfaces):
+            LOG.info('detaching interface {}', port_id, ecs=self.ecs.id)
+            self.manager.detach_interface(self.ecs, port_id)
+            self.wait_for_ecs_task_finished()
 
 
 class EcsAttachInterfaceLoopTest(base.EcsActionTestBase):
@@ -388,6 +409,7 @@ VM_TEST_SCENARIOS = {
     'stop': EcsStopTest, 'start': EcsStartTest, 'reboot': EcsRebootTest,
     'hard_reboot': EcsHardRebootTest,
     'attach_interface': EcsAttachInterfaceTest,
+    'detach_interface': EcsDetachInterfaceTest,
     'attach_interface_loop': EcsAttachInterfaceLoopTest,
     'attach_volume': EcsAttachVolumeTest,
     'attach_volume_loop': EcsAttachVolumeLoopTest,

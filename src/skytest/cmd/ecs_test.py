@@ -4,9 +4,9 @@ import os
 
 from skytest.common import log
 from skytest.common import conf
+from skytest.common import constants
 from skytest.common import exceptions
 from skytest.cases import scenario
-from skytest.cases import ecs_actions
 
 CONF = conf.CONF
 
@@ -17,12 +17,13 @@ def main():
 
 
 @main.command()
+@click.option('-a', '--actions', help='Test with specified actions')
 @click.option('-c', '--conf', 'conf_file',
-              default=os.getenv('SKYTEST_CONF_FILE'),
-              help='Defaults to env["SKYTEST_CONF_FILE"]')
+              default=os.getenv(constants.ENV_CONF_FILE),
+              help=f'Defaults to env["{constants.ENV_CONF_FILE}"]')
 @click.option('--log-file')
 @click.option('-v', '--verbose', multiple=True, is_flag=True)
-def action_test(verbose, log_file, conf_file):
+def action_test(verbose, log_file, conf_file, actions):
     """ECS scenario test
     """
     global LOG
@@ -32,6 +33,10 @@ def action_test(verbose, log_file, conf_file):
     except exceptions.ConfileNotExists as e:
         print(f'ERROR: load config failed, {e}')
         sys.exit(1)
+    if actions:
+        test_actions = actions.split(',')
+        object.__getattribute__(CONF.ecs_test, 'actions').set(test_actions)
+
     log.basic_config(verbose_count=max(len(verbose), CONF.verbose),
                      log_file=log_file or CONF.log_file)
     LOG = log.getLogger()
