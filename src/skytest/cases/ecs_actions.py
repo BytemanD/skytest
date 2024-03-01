@@ -31,7 +31,7 @@ class EcsCreateTest(base.EcsActionTestBase):
         self.ecs = self.manager.create_ecs(FLAVRS.current(), networks=net_ids)
         self.wait_for_ecs_task_finished()
         self.assert_ecs_is_active()
-        if CONF.ecs_test.enable_varify_console_log:
+        if CONF.ecs_test.enable_verify_console_log:
             LOG.info('varify console log matched', ecs=self.ecs.id)
             self.ecs_must_have_ok_console_log()
         self.wait_ecs_qga_connected()

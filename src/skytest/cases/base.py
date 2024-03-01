@@ -216,7 +216,7 @@ class EcsActionTestBase(object):
            tries=CONF.ecs_test.console_log_timeout,
            delay=1, backoff=2, max_delay=5)
     def ecs_must_have_ok_console_log(self):
-        if not CONF.ecs_test.enable_varify_console_log:
+        if not CONF.ecs_test.enable_verify_console_log:
             return
         output = self.manager.get_ecs_console_log(self.ecs, length=10)
         LOG.debug('console log:\n{}', output, ecs=self.ecs.id)

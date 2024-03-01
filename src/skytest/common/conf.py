@@ -64,7 +64,7 @@ class ECSTestConf(cfg2.OptionGroup):
     enable_guest_connection = cfg2.BoolOption('enable_guest_connection',
                                               default=False)
     # console log options
-    enable_varify_console_log = cfg2.BoolOption('enable_varify_console_log',
+    enable_verify_console_log = cfg2.BoolOption('enable_verify_console_log',
                                                 default=False)
     console_log_timeout = cfg2.IntOption('console_log_timeout', default=600)
     console_log_ok_keys = cfg2.ListOption(

@@ -68,7 +68,7 @@ flavors = []
 # enable_guest_qga_command = false
 
 ##### 允许检查 ECS console log
-# enable_varify_console_log = false
+# enable_verify_console_log = false
 
 ##### 跨设备热插拔的最少间隔
 # device_toggle_min_interval = 4
