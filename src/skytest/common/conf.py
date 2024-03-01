@@ -73,6 +73,8 @@ class ECSTestConf(cfg2.OptionGroup):
         'console_log_error_keys', default=[])
     boot_timeout = cfg2.IntOption('timeout', default=60 * 30)
     actions_interval = cfg2.Option('actions_interval')
+    attach_interface_loop_workers = cfg2.IntOption(
+        'attach_interface_loop_workers')
 
 
 class RebootConf(cfg2.OptionGroup):
