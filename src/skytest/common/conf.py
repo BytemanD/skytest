@@ -74,7 +74,7 @@ class ECSTestConf(cfg2.OptionGroup):
     boot_timeout = cfg2.IntOption('timeout', default=60 * 30)
     actions_interval = cfg2.Option('actions_interval')
     attach_interface_loop_workers = cfg2.IntOption(
-        'attach_interface_loop_workers')
+        'attach_interface_loop_workers', default=1)
 
 
 class RebootConf(cfg2.OptionGroup):

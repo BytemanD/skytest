@@ -72,7 +72,7 @@ class EcsActionTestBase(object):
     @retry(exceptions=AssertionError,
            tries=60, delay=1, backoff=2, max_delay=5)
     def wait_for_ecs_task_finished(self, show_progress=False):
-        self.ecs = self.manager.get_ecs(self.ecs)
+        self.refresh_ecs()
         LOG.debug('status={}, task state={}{}', self.ecs.status,
                   self.ecs.task_state,
                   show_progress and f' progress={self.ecs.progress}' or '',
@@ -276,6 +276,12 @@ class EcsActionTestBase(object):
         for vif_id in interfaces:
             assert vif_id in vifs, \
                 f'ecs {self.ecs.id} does not have interface {vif_id}'
+
+    def assert_ecs_has_no_interfaces(self, interfaces: list[str]):
+        vifs = self.manager.get_ecs_interfaces(self.ecs)
+        for vif_id in interfaces:
+            assert vif_id not in vifs, \
+                f'ecs {self.ecs.id} has interface {vif_id}'
 
     def assert_ecs_is_active(self):
         LOG.info('ecs status is {}', self.ecs.status, ecs=self.ecs.id)

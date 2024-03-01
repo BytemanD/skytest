@@ -1,6 +1,5 @@
 import random
 import time
-import re
 
 from skytest.common import conf
 from skytest.common import exceptions

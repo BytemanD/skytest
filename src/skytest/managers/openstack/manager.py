@@ -2,6 +2,7 @@ from concurrent import futures
 import functools
 import random
 import subprocess
+import time
 
 import prettytable
 
@@ -184,9 +185,25 @@ class OpenstackManager:
         for _ in range(num):
             vm.interface_attach(None, net_id, None)
 
+    def _wait_action_first_events(self, ecs: model.ECS, request_id: str,
+                                  retries=5):
+        for i in range(retries + 1):
+            action = self.client.nova.instance_action.get(ecs.id, request_id)
+            # import pdb; pdb.set_trace()
+            start_time = action.events and action.events[0].get('start_time')
+            LOG.debug('start_time of first event is {}, retry {}',
+                      start_time, i, ecs=ecs.id)
+            if start_time:
+                break
+            time.sleep(1)
+
     @wrap_exceptions
     def detach_interface(self, ecs: model.ECS, vif: str):
-        self.client.detach_server_interface(ecs.id, vif, wait=True)
+        resp = self.client.nova.servers.interface_detach(ecs.id, vif)
+        if not resp.request_ids:
+            return
+        req_id = resp.request_ids[0]
+        self._wait_action_first_events(ecs, req_id)
 
     def detach_interfaces(self, server_id, port_ids=None, start=0, end=None):
         if not port_ids:
@@ -493,7 +510,6 @@ class OpenstackManager:
     @wrap_exceptions
     def unpause_ecs(self, ecs: model.ECS):
         self.client.nova.servers.unpause(ecs.id)
-
 
     @wrap_exceptions
     def get_ecs_flavor_id(self, ecs: model.ECS):

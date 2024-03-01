@@ -1,4 +1,5 @@
 import time
+from concurrent import futures
 
 from skytest.common import conf
 from skytest.common import exceptions
@@ -141,13 +142,13 @@ class EcsAttachInterfaceLoopTest(base.EcsActionTestBase):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.attached_ports = []
-        self.created_ports = []
+        self.attached_ports: list = []
+        self.created_ports: list[model.Port] = []
 
-    def _attach_interface(self, port_id):
-        LOG.info('attaching interface {}', port_id, ecs=self.ecs.id)
-        port_id = self.manager.attach_net(self.ecs, next(NETWORKS))
-        self.attached_ports.append(port_id)
+    def _attach_interface(self, port: model.Port) -> str:
+        LOG.info('attaching interface {}', port.id, ecs=self.ecs.id)
+        port_id = self.manager.attach_interface(self.ecs, port.id)
+        self.attached_ports.append(port.id)
         self.wait_for_ecs_task_finished()
         return port_id
 
@@ -155,27 +156,34 @@ class EcsAttachInterfaceLoopTest(base.EcsActionTestBase):
         if NETWORKS.is_empty():
             raise exceptions.SkipActionException('networks is empty')
 
-        self.created_ports = [
+        LOG.debug("creating {} port(s)",
+                  CONF.ecs_test.attach_interface_nums_each_time,
+                  ecs=self.ecs.id)
+        self.created_ports.extend([
             self.manager.create_port(next(NETWORKS))
             for _ in range(CONF.ecs_test.attach_interface_nums_each_time)
-        ]
+        ])
 
-        from concurrent import futures
-        if CONF.ecs_test.attach_interface_loop_workers:
-            max_workers = CONF.ecs_test.attach_interface_loop_workers
-        else:
-            max_workers = len(NETWORKS)
-        with futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-            results = pool.map(self._attach_interface,
-                               [port.id for port in self.created_ports])
-            for fut in futures.as_completed(results):
-                LOG.info('attached interface {}', fut.result())
+        with futures.ThreadPoolExecutor(
+            max_workers=CONF.ecs_test.attach_interface_loop_workers
+        ) as pool:
+            results = pool.map(self._attach_interface, self.created_ports)
+            for result in results:
+                LOG.info('attached interface {}', result, ecs=self.ecs.id)
         self.guest_must_have_all_ipaddress()
 
         for port_id in self.attached_ports:
             LOG.info('detaching interface {}', port_id, ecs=self.ecs.id)
             self.manager.detach_interface(self.ecs, port_id)
+            self.wait_for_ecs_task_finished()
+            self.assert_ecs_is_not_error()
+            self.assert_ecs_has_no_interfaces([port_id])
         self.wait_for_ecs_task_finished()
+
+    def tear_down(self):
+        for port in self.created_ports:
+            LOG.debug('delete port {}', port.id, ecs=self.ecs.id)
+            self.manager.delete_port(port.id)
 
 
 class EcsAttachVolumeTest(base.EcsActionTestBase):
