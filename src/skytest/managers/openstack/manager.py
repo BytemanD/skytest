@@ -189,7 +189,6 @@ class OpenstackManager:
                                   retries=5):
         for i in range(retries + 1):
             action = self.client.nova.instance_action.get(ecs.id, request_id)
-            # import pdb; pdb.set_trace()
             start_time = action.events and action.events[0].get('start_time')
             LOG.debug('start_time of first event is {}, retry {}',
                       start_time, i, ecs=ecs.id)
@@ -199,11 +198,7 @@ class OpenstackManager:
 
     @wrap_exceptions
     def detach_interface(self, ecs: model.ECS, vif: str):
-        resp = self.client.nova.servers.interface_detach(ecs.id, vif)
-        if not resp.request_ids:
-            return
-        req_id = resp.request_ids[0]
-        self._wait_action_first_events(ecs, req_id)
+        self.client.nova.servers.interface_detach(ecs.id, vif)
 
     def detach_interfaces(self, server_id, port_ids=None, start=0, end=None):
         if not port_ids:

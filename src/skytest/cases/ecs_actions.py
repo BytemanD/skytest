@@ -159,10 +159,16 @@ class EcsAttachInterfaceLoopTest(base.EcsActionTestBase):
         LOG.debug("creating {} port(s)",
                   CONF.ecs_test.attach_interface_nums_each_time,
                   ecs=self.ecs.id)
-        self.created_ports.extend([
-            self.manager.create_port(next(NETWORKS))
+        net_ids = [
+            next(NETWORKS)
             for _ in range(CONF.ecs_test.attach_interface_nums_each_time)
-        ])
+        ]
+        with futures.ThreadPoolExecutor(
+            max_workers=CONF.ecs_test.attach_interface_loop_workers
+        ) as pool:
+            results = pool.map(self.manager.create_port, net_ids)
+            for result in results:
+                self.created_ports.append(result)
 
         with futures.ThreadPoolExecutor(
             max_workers=CONF.ecs_test.attach_interface_loop_workers

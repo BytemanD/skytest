@@ -261,14 +261,13 @@ class EcsActionTestBase(object):
         guest = self.get_libvirt_guest(host=host)
         assert guest.is_active, f'ecs {self.ecs.id} guest is not active'
 
-    @retry(exceptions=exceptions.EcsGuestIsExists, tries=60, delay=5)
+    @retry(exceptions=AssertionError, tries=60, delay=5)
     def wait_ecs_guest_not_exists(self, host=None):
         if not CONF.ecs_test.enable_guest_connection:
             return
         LOG.debug('waiting guest to be deleted', ecs=self.ecs.id)
         guest = self.get_libvirt_guest(host=host)
-        if guest.is_exists():
-            raise exceptions.EcsGuestIsExists(self.ecs.id)
+        assert guest.is_exists(), f'ecs {self.ecs.id} guest is still exists'
         LOG.info('guest is not exists', ecs=self.ecs.id)
 
     def assert_ecs_has_interfaces(self, interfaces: list[str]):
@@ -277,6 +276,7 @@ class EcsActionTestBase(object):
             assert vif_id in vifs, \
                 f'ecs {self.ecs.id} does not have interface {vif_id}'
 
+    @retry(exceptions=AssertionError, tries=30, delay=2)
     def assert_ecs_has_no_interfaces(self, interfaces: list[str]):
         vifs = self.manager.get_ecs_interfaces(self.ecs)
         for vif_id in interfaces:
