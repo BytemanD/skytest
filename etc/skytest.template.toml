@@ -72,3 +72,10 @@ flavors = []
 
 ##### 跨设备热插拔的最少间隔
 # device_toggle_min_interval = 4
+
+#### 循环挂载网卡时的并发数和每次挂载的个数
+# attach_interface_loop_workers = 1
+# attach_interface_nums_each_time = 1
+#### 循环挂载云盘时的并发数和每次挂载的个数
+# attach_volume_loop_workers = 1
+# attach_volume_nums_each_time = 1

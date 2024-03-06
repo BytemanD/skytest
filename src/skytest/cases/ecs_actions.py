@@ -148,9 +148,17 @@ class EcsAttachInterfaceLoopTest(base.EcsActionTestBase):
     def _attach_interface(self, port: model.Port) -> str:
         LOG.info('attaching interface {}', port.id, ecs=self.ecs.id)
         port_id = self.manager.attach_interface(self.ecs, port.id)
-        self.attached_ports.append(port.id)
+        self.attached_ports.append(port)
         self.wait_for_ecs_task_finished()
         return port_id
+
+    def _deattach_interface(self, port: model.Port) -> str:
+        LOG.info('detaching interface {}', port.id, ecs=self.ecs.id)
+        self.manager.detach_interface(self.ecs, port.id)
+        self.wait_for_ecs_task_finished()
+        self.assert_ecs_is_not_error()
+        self.assert_ecs_has_no_interfaces([port.id])
+        return port.id
 
     def start(self):
         if NETWORKS.is_empty():
@@ -163,12 +171,8 @@ class EcsAttachInterfaceLoopTest(base.EcsActionTestBase):
             next(NETWORKS)
             for _ in range(CONF.ecs_test.attach_interface_nums_each_time)
         ]
-        with futures.ThreadPoolExecutor(
-            max_workers=CONF.ecs_test.attach_interface_loop_workers
-        ) as pool:
-            results = pool.map(self.manager.create_port, net_ids)
-            for result in results:
-                self.created_ports.append(result)
+        self.created_ports = self.create_ports(
+            net_ids, workers=CONF.ecs_test.attach_interface_loop_workers)
 
         with futures.ThreadPoolExecutor(
             max_workers=CONF.ecs_test.attach_interface_loop_workers
@@ -178,15 +182,14 @@ class EcsAttachInterfaceLoopTest(base.EcsActionTestBase):
                 LOG.info('attached interface {}', result, ecs=self.ecs.id)
         self.guest_must_have_all_ipaddress()
 
-        for port_id in self.attached_ports:
-            LOG.info('detaching interface {}', port_id, ecs=self.ecs.id)
-            self.manager.detach_interface(self.ecs, port_id)
-            self.wait_for_ecs_task_finished()
-            self.assert_ecs_is_not_error()
-            self.assert_ecs_has_no_interfaces([port_id])
+        with futures.ThreadPoolExecutor(
+            max_workers=CONF.ecs_test.attach_interface_loop_workers
+        ) as pool:
+            results = pool.map(self._deattach_interface, self.attached_ports)
+            for result in results:
+                LOG.info('detached interface {}', result, ecs=self.ecs.id)
         self.wait_for_ecs_task_finished()
 
-    def tear_down(self):
         for port in self.created_ports:
             LOG.debug('delete port {}', port.id, ecs=self.ecs.id)
             self.manager.delete_port(port.id)
@@ -231,31 +234,51 @@ class EcsAttachVolumeTest(base.EcsActionTestBase):
 
 class EcsAttachVolumeLoopTest(base.EcsActionTestBase):
 
+    def _attach_volume(self, volume: model.Volume):
+        self.manager.attach_volume(self.ecs, volume.id)
+        self.wait_for_ecs_task_finished()
+        self.wait_volume_is_inuse(volume)
+        return volume.id
+
+    def _detach_volume(self, volume: model.Volume):
+        self.manager.detach_volume(self.ecs, volume.id)
+        self.wait_for_ecs_task_finished()
+        self.wait_volume_is_available(volume)
+        return volume.id
+
     def start(self):
-        self.create_volumes(
+        self.created_volumes = self.create_volumes(
             10, num=CONF.ecs_test.attach_volume_nums_each_time)
 
-        for (i, volume) in enumerate(self.created_volumes):
-            LOG.info('attach volume {}', i + 1, ecs=self.ecs.id)
-            self.manager.attach_volume(self.ecs, volume.id)
-            self.wait_for_ecs_task_finished()
-            self.created_volumes[i] = self.wait_volume_is_inuse(volume)
+        with futures.ThreadPoolExecutor(
+             max_workers=CONF.ecs_test.attach_volume_loop_workers
+        ) as pool:
+            results = pool.map(self._attach_volume, self.created_volumes)
+            for result in results:
+                LOG.info("attached volume {}", result, ecs=self.ecs.id)
         self.guest_must_have_all_block()
 
         LOG.debug('sleep {} seconds before detach volume',
                   CONF.ecs_test.device_toggle_min_interval,
                   ecs=self.ecs.id)
         time.sleep(CONF.ecs_test.device_toggle_min_interval)
-        for (i, volume) in enumerate(self.created_volumes):
-            self.manager.detach_volume(self.ecs, volume.id)
-            self.wait_for_ecs_task_finished()
-            self.created_volumes[i] = self.wait_volume_is_available(volume)
 
+        with futures.ThreadPoolExecutor(
+            max_workers=CONF.ecs_test.attach_volume_loop_workers
+        ) as pool:
+            results = pool.map(self._detach_volume, self.created_volumes)
+            for result in results:
+                LOG.info("detached volume {}", result, ecs=self.ecs.id)
         self.guest_must_have_all_block()
 
     def tear_down(self):
-        for volume in self.created_volumes:
-            self.manager.delete_volume(volume)
+        with futures.ThreadPoolExecutor(
+            max_workers=CONF.ecs_test.attach_volume_loop_workers
+        ) as pool:
+            results = pool.map(self.manager.delete_volume,
+                               self.created_volumes)
+            for result in results:
+                LOG.debug("deleted volume {}", result, ecs=self.ecs.id)
         super().tear_down()
 
 

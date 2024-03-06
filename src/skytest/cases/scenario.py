@@ -118,7 +118,7 @@ class ECSScenarioTest(object):
             except exceptions.SkipActionException as e:
                 LOG.warning('skip test action "{}": {}', action, e,
                             ecs=(self.ecs and self.ecs.id))
-            except AssertionError as e:
+            except (AssertionError, exceptions.EcsCloudAPIError) as e:
                 raise exceptions.EcsTestFailed(
                     ecs=self.ecs and self.ecs.id or '-',
                     action=action, reason=f'{str(e)}')

@@ -161,30 +161,36 @@ class EcsActionTestBase(object):
         LOG.info("ecs has blocks: {}", ecs_blocks, ecs=self.ecs.id)
         self._guest_must_have_all_block(ecs_blocks)
 
-    def create_volumes(self, size, name=None, num=1, workers=None, image=None,
+    def create_volumes(self, size, num=1, workers=None, image=None,
                        snapshot=None, volume_type=None):
-        LOG.debug('try to create {} volume(s), name={}, image={}, snapshot={}',
-                  num, name, image, snapshot, ecs=self.ecs.id)
-        self.created_volumes = []
-        if not name:
-            name = utils.generate_name('vol')
+        created_volumes = []
+        LOG.debug('try to create {} volume(s), image={}, snapshot={}',
+                  num, image, snapshot, ecs=self.ecs.id)
 
         with futures.ThreadPoolExecutor(max_workers=workers) as executor:
             tasks = [executor.submit(self.manager.create_volume,
-                                     size_gb=size, name=f'{name}-{index}',
-                                     image=image, snapshot=snapshot,
+                                     size_gb=size, image=image,
+                                     snapshot=snapshot,
                                      volume_type=volume_type)
-                     for index in range(1, num + 1)]
+                     for _ in range(1, num + 1)]
             LOG.info('creating {} volume(s) ...', num, ecs=self.ecs.id)
             for task in futures.as_completed(tasks):
                 vol = task.result()
                 if not vol:
                     continue
-                self.created_volumes.append(vol)
+                created_volumes.append(vol)
 
-        for volume in self.created_volumes:
+        for volume in created_volumes:
             self.wait_volume_created(volume)
-        return self.created_volumes
+        return created_volumes
+
+    def create_ports(self, networks, workers=None) -> list[str]:
+        created_ports = []
+        with futures.ThreadPoolExecutor(max_workers=workers) as pool:
+            results = pool.map(self.manager.create_port, networks)
+            for result in results:
+                created_ports.append(result)
+        return created_ports
 
     @retry(exceptions=AssertionError,
            tries=60, delay=1, backoff=2, max_delay=10)
