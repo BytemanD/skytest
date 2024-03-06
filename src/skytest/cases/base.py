@@ -9,7 +9,6 @@ from skytest.common import exceptions
 from skytest.common import log
 from skytest.common import model
 from skytest.common import libvirt_guest
-from skytest.common import utils
 from skytest.managers import base as base_manager
 
 CONF = conf.CONF

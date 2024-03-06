@@ -318,6 +318,8 @@ class OpenstackManager:
                 'destination_type': 'volume', 'boot_index': 0,
                 'delete_on_termination': True,
             }]
+            if CONF.openstack.volume_type:
+                bdm_v2[0]['volume_type'] = CONF.openstack.volume_type
         else:
             image = image_id
         server = self.client.nova.servers.create(
@@ -440,6 +442,7 @@ class OpenstackManager:
         name = name or utils.generate_name('vol')
         LOG.debug('creating volume {}, image={}, snapshot={}',
                   name, image, snapshot)
+        volume_type = volume_type or CONF.openstack.volume_type
         vol = self.client.create_volume(name, size_gb=size_gb,
                                         image_ref=image, snapshot=snapshot,
                                         volume_type=volume_type)

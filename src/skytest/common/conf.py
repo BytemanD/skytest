@@ -23,9 +23,11 @@ class OpenstackConf(cfg2.OptionGroup):
     networks = cfg2.ListOption('networks', default=[])
     boot_from_volume = cfg2.BoolOption('boot_from_volume', default=False)
     volume_size = cfg2.IntOption('volume_size', default=50)
+    volume_type = cfg2.Option('volume_type')
     boot_az = cfg2.Option('boot_az')
     nova_api_version = cfg2.Option('nova_api_version', default='2.40')
     connect_retries = cfg2.IntOption('connect_retries', default=1)
+    neutron_endpoint = cfg2.Option('neutron_endpoint')
 
 
 class ECSTestConf(cfg2.OptionGroup):

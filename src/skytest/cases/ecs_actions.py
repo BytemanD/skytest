@@ -251,7 +251,7 @@ class EcsAttachVolumeLoopTest(base.EcsActionTestBase):
             10, num=CONF.ecs_test.attach_volume_nums_each_time)
 
         with futures.ThreadPoolExecutor(
-             max_workers=CONF.ecs_test.attach_volume_loop_workers
+            max_workers=CONF.ecs_test.attach_volume_loop_workers
         ) as pool:
             results = pool.map(self._attach_volume, self.created_volumes)
             for result in results:

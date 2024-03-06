@@ -42,8 +42,9 @@ class OpenstackClient(object):
         self.session = Session(auth=self.auth,
                                connect_retries=CONF.openstack.connect_retries)
         self.keystone = client.Client(session=self.session)
-        self.neutron = neutron_client.Client(session=self.session,
-                                             region_name=region_name)
+        self.neutron = neutron_client.Client(
+            session=self.session, region_name=region_name,
+            endpoint_override=CONF.openstack.neutron_endpoint)
         self.nova = nova_client.Client(CONF.openstack.nova_api_version,
                                        session=self.session,
                                        extensions=get_nova_extensions(),
