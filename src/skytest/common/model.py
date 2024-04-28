@@ -26,7 +26,7 @@ class ECS:
         return self.status.upper() == 'BUILDING'
 
     def is_shelved(self):
-        return self.status.upper() == 'SHELVED_OFFLOADED'
+        return self.status.upper() in ['SHELVED', 'SHELVED_OFFLOADED']
 
     def has_task(self):
         return not not self.task_state

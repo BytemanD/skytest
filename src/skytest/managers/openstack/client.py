@@ -83,7 +83,7 @@ class OpenstackClient(object):
     @classmethod
     def create_instance(cls):
         auth_url, auth_kwargs = cls.get_auth_info_from_conf()
-        # LOG.debug('auth info: {}', auth_kwargs)
+        LOG.debug('auth info: {}', auth_kwargs)
         return OpenstackClient(auth_url, **auth_kwargs)
 
     def attach_interface(self, net_id=None, port_id=None):

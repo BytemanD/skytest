@@ -32,3 +32,9 @@ python >= 3.6.0
     cd src
     pdm run skytest/cmd/ecs_test.py action-test
     ```
+    或者
+    ```
+    export PYTHONPATH=src/
+    python src/skytest/cmd/ecs_test.py action-test
+    ```
+

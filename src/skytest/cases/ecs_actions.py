@@ -386,7 +386,7 @@ class EcsResizeTest(base.EcsActionTestBase):
         self.guest_must_have_all_block()
 
 
-class EcsShelveTtest(base.EcsActionTestBase):
+class EcsShelveTest(base.EcsActionTestBase):
 
     def start(self):
         src_host = self.manager.get_host_ip(self.ecs.host)
@@ -460,6 +460,29 @@ class EcsTogglePause(base.EcsActionTestBase):
                 f'ecs status is {self.ecs.status}')
 
 
+class EcsToggleShelve(base.EcsActionTestBase):
+
+    def start(self):
+        self.refresh_ecs()
+        self._toggle_shelve()
+        self._toggle_shelve()
+
+    def _toggle_shelve(self):
+        if self.ecs.is_active():
+            self.manager.shelve_ecs(self.ecs)
+            self.wait_for_ecs_task_finished()
+            assert self.ecs.is_shelved(), 'ecs is not shelved'
+            LOG.info('ecs is shelved', ecs=self.ecs.id)
+        elif self.ecs.is_shelved():
+            self.manager.unshelve_ecs(self.ecs)
+            self.wait_for_ecs_task_finished()
+            assert self.ecs.is_active(), 'ecs is not active'
+            LOG.info('ecs is active', ecs=self.ecs.id)
+        else:
+            raise exceptions.SkipActionException(
+                f'ecs status is {self.ecs.status}')
+
+
 VM_TEST_SCENARIOS = {
     'create': EcsCreateTest,
     'stop': EcsStopTest, 'start': EcsStartTest, 'reboot': EcsRebootTest,
@@ -473,7 +496,8 @@ VM_TEST_SCENARIOS = {
     'live_migrate': EcsLiveMigrateTest, 'migrate': EcsMigrateTest,
     'rename': EcsRenameTest,
     'rebuild': EcsRebuildTest, 'resize': EcsResizeTest,
-    'shelve': EcsShelveTtest, 'unshelve': EcsUnshelveTtest,
+    'shelve': EcsShelveTest, 'unshelve': EcsUnshelveTtest,
     'pause': EcsPauseTest, 'unpause': EcsUnpauseTest,
     'toggle_pause': EcsTogglePause,
+    'toggle_shelve': EcsToggleShelve,
 }

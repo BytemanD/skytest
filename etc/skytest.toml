@@ -1,0 +1,76 @@
+verbose = 0
+manager = 'openstack'
+# log_file = 'skytest.log'
+
+[openstack]
+auth_url = 'http://keystone.region1.zbw.ec:35357/v3'
+auth_username = 'admin'
+auth_password = 'admin123'
+auth_project_name = 'admin'
+
+# cirros
+image_id = '418f589b-d337-4ce3-ab53-1f460316ea25'
+# bclinux8
+# image_id = '76bd8439-aa72-4bae-b79a-1a7a14250ea9'
+# flavor  = c5e.xlarge.2
+flavors = [
+    "4g4v",
+    # "ecloud-computeEnhance-8378C-3.0-000800320000"
+]
+
+networks = [
+    '56f18c68-5f80-426d-9a17-117ef30fcc50',
+    '1c6404ae-fb93-4803-a033-7e467610c2db',
+]
+boot_from_volume = true
+
+# boot_az = 'ecloud_computeEnhance_c5e_zone:rock9'
+# boot_az = 'ecloud_computeEnhance_c5e_zone:rock8'
+boot_az = 'nova:master-61'
+# boot_az = 'nova:rock11'
+# boot_az = 'nova:rock11'
+nova_api_version = '2.53'
+
+[ecs_test]
+total = 1
+worker = 1
+# 支持的操作：
+#   rename,
+#   stop, start, reboot
+#   attach_interface, attach_interface_loop
+#   attach_volume, attach_volume_loop
+#   start, stop, reboot
+#   extend_volume
+#   live_migrate, migrate
+#   shelve/unshelve
+# actions = ['stop', 'suspend', 'pause', 'migrate', 'live_migrate']
+# actions = ['create' 'attach_volume_loop:10']
+# actions = ['create', 'attach_interface_loop:1']
+# actions = ['create', 'attach_interface_loop:2']
+ecs_id = "5932782c-c6de-4794-b7c3-aa3bd3104c00"
+actions = [
+    # 'create',
+    'attach_interface:2',
+    'toggle_shelve',
+    'attach_interface:2',
+    # 'detach_interface:2',
+    # 'attach_volume_loop:2',
+    # 'attach_volume',
+    # 'stop', 'start', 'reboot', 'hard_reboot',
+    # 'extend_volume',
+
+    # 'live_migrate',
+    # 'attach_volume_loop:',
+]
+# actions = ['create', 'shelve']
+attach_interface_loop_workers = 10
+attach_interface_nums_each_time = 8
+attach_volume_nums_each_time = 1
+
+# cleanup_error_vms = false
+
+enable_guest_connection = true
+# random_actions = true
+# actions_interval = "0-5"
+# enable_guest_qga_command = true
+# enable_verify_console_log = true
